@@ -1,0 +1,48 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tabel Layanan / Harga
+model Layanan {
+  id          String   @id @default(cuid())
+  kategori    String   // Contoh: "Laporan", "Soal", "Projek"
+  namaLayanan String   // Contoh: "Makalah Akademik", "Matematika"
+  hargaDasar  Int      // Contoh: 3000, 30000, 150000
+  deskripsi   String?  // Info tambahan opsional
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Tabel Ulasan (Review)
+model Ulasan {
+  id        String   @id @default(cuid())
+  nama      String
+  role      String   // Contoh: Mahasiswa S1
+  teks      String
+  rating    Int      @default(5)
+  status    StatusUlasan @default(PENDING) // Default pending, nunggu acc admin
+  createdAt DateTime @default(now())
+}
+
+// Enum untuk status ulasan
+enum StatusUlasan {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Tabel Portfolio
+model Portfolio {
+  id        String   @id @default(cuid())
+  judul     String
+  kategori  String
+  imageUrl  String   // Link gambar (bisa dari Vercel Blob / Cloudinary / dll)
+  createdAt DateTime @default(now())
+}
