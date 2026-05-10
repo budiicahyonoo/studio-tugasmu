@@ -31,13 +31,14 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 1. NAVBAR DENGAN ROUNDED BAWAH */}
-      <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 rounded-b-3xl md:rounded-b-[2.5rem] ${
+      {/* 1. MENGGANTI w-full DENGAN inset-x-0 AGAR TERKUNCI PRESISI DI LAYAR HP */}
+      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-3xl md:rounded-b-[2.5rem] ${
         isScrolled || isMenuOpen
           ? "bg-[#14213D]/95 backdrop-blur-lg border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4"
           : "bg-transparent py-4 md:py-5"
       }`}>
-        <div className="w-full max-w-7xl mx-auto px-5 md:px-12 flex justify-between items-center">
+        {/* Menggunakan px-4 untuk jarak pinggir yang aman di Mobile */}
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex justify-between items-center">
           
           {/* Logo */}
           <Link href="/" className="flex-shrink-0 z-50" onClick={() => setIsMenuOpen(false)}>
@@ -63,8 +64,8 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* 2. TOMBOL BURGER (DIAMANKAN DARI POTONGAN LAYAR) */}
-          <div className="md:hidden flex items-center z-50 flex-shrink-0">
+          {/* 2. TOMBOL BURGER MOBILE AMAN */}
+          <div className="md:hidden flex items-center z-50">
              <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="text-[#FCA311] p-2 bg-[#14213D]/80 rounded-lg border border-[#FCA311]/30 hover:bg-[#FCA311]/10 transition-colors shadow-md"
@@ -106,7 +107,7 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
 
-      {/* 3. POPUP MODAL (MOBILE FRIENDLY SIZE) */}
+      {/* 3. POPUP MODAL (TIDAK ADA PERUBAHAN LOGIKA, HANYA LAYOUT MOBILE) */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -118,7 +119,6 @@ export default function Navbar() {
 
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              // Penyesuaian lebar (w-[95%]) dan padding (p-6) untuk HP
               className="relative bg-[#14213D] border border-[#FCA311]/30 rounded-2xl md:rounded-3xl p-6 md:p-8 w-[95%] max-w-md shadow-[0_0_30px_rgba(252,163,17,0.2)] z-10"
             >
               <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-[#E5E5E5]/50 hover:text-[#FCA311]">
