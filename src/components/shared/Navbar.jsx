@@ -31,13 +31,11 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 1. MENGGANTI w-full DENGAN inset-x-0 AGAR TERKUNCI PRESISI DI LAYAR HP */}
       <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-3xl md:rounded-b-[2.5rem] ${
         isScrolled || isMenuOpen
           ? "bg-[#14213D]/95 backdrop-blur-lg border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4"
           : "bg-transparent py-4 md:py-5"
       }`}>
-        {/* Menggunakan px-4 untuk jarak pinggir yang aman di Mobile */}
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex justify-between items-center">
           
           {/* Logo */}
@@ -64,13 +62,14 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* 2. TOMBOL BURGER MOBILE AMAN */}
+          {/* 2. TOMBOL BURGER (SUDAH DIPERBAIKI: MURNI TRANSPARAN, KOTAK BIRU DIHAPUS) */}
           <div className="md:hidden flex items-center z-50">
              <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-[#FCA311] p-2 bg-[#14213D]/80 rounded-lg border border-[#FCA311]/30 hover:bg-[#FCA311]/10 transition-colors shadow-md"
+                // Kotak biru, border, dan bayangan sudah dihapus total! Cuma sisa icon.
+                className="text-[#FCA311] p-1 hover:opacity-80 transition-opacity"
               >
-                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                {isMenuOpen ? <X size={30} /> : <Menu size={30} />}
               </button>
           </div>
         </div>
@@ -107,7 +106,7 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
 
-      {/* 3. POPUP MODAL (TIDAK ADA PERUBAHAN LOGIKA, HANYA LAYOUT MOBILE) */}
+      {/* 3. POPUP MODAL */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
