@@ -31,16 +31,16 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-[2rem] md:rounded-b-[3rem] ${
-        isScrolled || isMenuOpen
-          ? "bg-[#14213D]/70 backdrop-blur-xl border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4"
-          : "bg-transparent py-4 md:py-6"
-      }`}>
+      {/* NAVBAR: Selalu menyala menggunakan bg-[#14213D]/70 dan backdrop-blur-xl sejak awal */}
+      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-[2rem] md:rounded-b-[3rem] bg-[#14213D]/70 backdrop-blur-xl border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4`}>
         <div className="w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
+          
+          {/* Logo Gambar (Tetap Dipertahankan) */}
           <Link href="/" className="flex-shrink-0 z-50" onClick={() => setIsMenuOpen(false)}>
             <img src="/logo.png" alt="Logo" className="h-7 md:h-10 w-auto object-contain" />
           </Link>
 
+          {/* Menu Desktop */}
           <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-[#E5E5E5]">
             {navLinks.map((link) => (
               <Link key={link.name} href={link.href} className="hover:text-[#FCA311] transition-colors">
@@ -49,12 +49,14 @@ export default function Navbar() {
             ))}
           </div>
 
+          {/* CTA Desktop */}
           <div className="hidden md:block flex-shrink-0">
             <button onClick={() => setIsModalOpen(true)} className="bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg">
               Mulai Konsultasi
             </button>
           </div>
 
+          {/* Tombol Burger Mobile */}
           <div className="md:hidden flex items-center z-50">
              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-[#FCA311] p-1">
                 {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -62,6 +64,7 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* ISI MENU BURGER */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="md:hidden overflow-hidden bg-[#14213D]/90 backdrop-blur-xl">
@@ -80,7 +83,7 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
 
-      {/* Modal tetap sama */}
+      {/* Modal Konsultasi */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
