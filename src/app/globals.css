@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
-body {
-  background-color: #0B0F19;
-  color: white;
+/* KUNCI MUTLAK: Membunuh ruang kosong di kanan & mengganti background jadi hitam pekat */
+html, body {
+  background-color: #000000 !important;
+  color: #FFFFFF;
+  max-width: 100vw;
+  width: 100%;
+  overflow-x: hidden !important; /* Haram hukumnya bisa digeser ke kanan */
 }
 
 /* Custom Animasi */
@@ -45,6 +49,6 @@ body {
 
 .glass-input:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 1px #38bdf8;
+  border-color: #FCA311; /* Aku ubah outline focusnya jadi EMAS biar senada! */
+  box-shadow: 0 0 0 1px #FCA311;
 }

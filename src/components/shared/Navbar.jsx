@@ -19,7 +19,7 @@ export default function Navbar() {
   }, []);
 
   const waLink = `https://wa.me/6283151195556?text=${encodeURIComponent("Halo Admin Studio Tugasmu!\n\nNama saya : ...\nSaya ingin konsultasi mengenai : ...")}`;
-  const calendlyLink = "https://calendly.com/stackplustudio";
+  const calendlyLink = "https://calendly.com/budicahyono-dev/new-meeting";
 
   const navLinks = [
     { name: "Beranda", href: "#beranda" },
@@ -31,19 +31,16 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-3xl md:rounded-b-[2.5rem] ${
+      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-[2rem] md:rounded-b-[3rem] ${
         isScrolled || isMenuOpen
-          ? "bg-[#14213D]/95 backdrop-blur-lg border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4"
-          : "bg-transparent py-4 md:py-5"
+          ? "bg-[#14213D]/70 backdrop-blur-xl border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4"
+          : "bg-transparent py-4 md:py-6"
       }`}>
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex justify-between items-center">
-          
-          {/* Logo */}
+        <div className="w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
           <Link href="/" className="flex-shrink-0 z-50" onClick={() => setIsMenuOpen(false)}>
             <img src="/logo.png" alt="Logo" className="h-7 md:h-10 w-auto object-contain" />
           </Link>
 
-          {/* Menu Desktop */}
           <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-[#E5E5E5]">
             {navLinks.map((link) => (
               <Link key={link.name} href={link.href} className="hover:text-[#FCA311] transition-colors">
@@ -52,52 +49,29 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* CTA Desktop */}
           <div className="hidden md:block flex-shrink-0">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg"
-            >
+            <button onClick={() => setIsModalOpen(true)} className="bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg">
               Mulai Konsultasi
             </button>
           </div>
 
-          {/* 2. TOMBOL BURGER (SUDAH DIPERBAIKI: MURNI TRANSPARAN, KOTAK BIRU DIHAPUS) */}
           <div className="md:hidden flex items-center z-50">
-             <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                // Kotak biru, border, dan bayangan sudah dihapus total! Cuma sisa icon.
-                className="text-[#FCA311] p-1 hover:opacity-80 transition-opacity"
-              >
-                {isMenuOpen ? <X size={30} /> : <Menu size={30} />}
+             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-[#FCA311] p-1">
+                {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
               </button>
           </div>
         </div>
 
-        {/* ISI MENU BURGER */}
         <AnimatePresence>
           {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden overflow-hidden"
-            >
-              <div className="flex flex-col px-6 py-4 space-y-3">
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="md:hidden overflow-hidden bg-[#14213D]/90 backdrop-blur-xl">
+              <div className="flex flex-col px-8 py-6 space-y-4">
                 {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex justify-between items-center text-[#E5E5E5] text-base font-medium border-b border-[#E5E5E5]/10 pb-3"
-                  >
-                    {link.name} <ChevronRight size={18} className="text-[#FCA311]" />
+                  <Link key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)} className="flex justify-between items-center text-[#E5E5E5] text-lg font-medium border-b border-[#E5E5E5]/10 pb-4">
+                    {link.name} <ChevronRight size={20} className="text-[#FCA311]" />
                   </Link>
                 ))}
-                <button
-                  onClick={() => { setIsModalOpen(true); setIsMenuOpen(false); }}
-                  className="w-full bg-[#FCA311] text-[#000000] py-3.5 rounded-xl font-bold mt-3 shadow-[0_4px_15px_rgba(252,163,17,0.3)]"
-                >
+                <button onClick={() => { setIsModalOpen(true); setIsMenuOpen(false); }} className="w-full bg-[#FCA311] text-[#000000] py-4 rounded-2xl font-bold mt-4 shadow-xl">
                   Konsultasi Sekarang
                 </button>
               </div>
@@ -106,42 +80,21 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
 
-      {/* 3. POPUP MODAL */}
+      {/* Modal tetap sama */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-[#000000]/80 backdrop-blur-sm cursor-pointer"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-[#14213D] border border-[#FCA311]/30 rounded-2xl md:rounded-3xl p-6 md:p-8 w-[95%] max-w-md shadow-[0_0_30px_rgba(252,163,17,0.2)] z-10"
-            >
-              <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-[#E5E5E5]/50 hover:text-[#FCA311]">
-                <X size={24} />
-              </button>
-
-              <h3 className="text-xl md:text-2xl font-bold text-[#FFFFFF] mb-2 pr-6">Pilih Jalur Diskusi</h3>
-              <p className="text-[#E5E5E5]/70 text-xs md:text-sm mb-6">Tim Studio Tugasmu siap membantu kebutuhan akademikmu.</p>
-
-              <div className="flex flex-col gap-3 md:gap-4">
-                <a href={waLink} target="_blank" className="flex items-center gap-3 md:gap-4 bg-[#000000]/40 border border-[#E5E5E5]/10 hover:border-[#FCA311] p-3 md:p-4 rounded-xl md:rounded-2xl transition-all group">
-                  <div className="bg-[#25D366]/20 p-2.5 md:p-3 rounded-lg md:rounded-xl"><MessageCircle className="text-[#25D366]" size={24} /></div>
-                  <div>
-                    <h4 className="text-[#FFFFFF] font-bold text-sm md:text-base">WhatsApp Chat</h4>
-                    <p className="text-[#E5E5E5]/50 text-[10px] md:text-xs">Fast Respon (Rekomendasi)</p>
-                  </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-[#000000]/80 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-[#14213D] border border-[#FCA311]/30 rounded-3xl p-8 w-[95%] max-w-md z-10">
+              <h3 className="text-2xl font-bold text-white mb-2">Pilih Jalur Diskusi</h3>
+              <div className="flex flex-col gap-4 mt-6">
+                <a href={waLink} target="_blank" className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#FCA311] transition-all">
+                  <MessageCircle className="text-[#25D366]" size={28} />
+                  <span className="text-white font-bold">WhatsApp Chat</span>
                 </a>
-
-                <a href={calendlyLink} target="_blank" className="flex items-center gap-3 md:gap-4 bg-[#000000]/40 border border-[#E5E5E5]/10 hover:border-[#FCA311] p-3 md:p-4 rounded-xl md:rounded-2xl transition-all group">
-                  <div className="bg-[#4285F4]/20 p-2.5 md:p-3 rounded-lg md:rounded-xl"><Video className="text-[#4285F4]" size={24} /></div>
-                  <div>
-                    <h4 className="text-[#FFFFFF] font-bold text-sm md:text-base">Google Meet</h4>
-                    <p className="text-[#E5E5E5]/50 text-[10px] md:text-xs">Jadwalkan via Calendly</p>
-                  </div>
+                <a href={calendlyLink} target="_blank" className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#FCA311] transition-all">
+                  <Video className="text-[#4285F4]" size={28} />
+                  <span className="text-white font-bold">Google Meet</span>
                 </a>
               </div>
             </motion.div>

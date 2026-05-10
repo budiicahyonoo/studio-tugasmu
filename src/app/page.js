@@ -10,29 +10,25 @@ import { prisma } from "../lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // Ambil Layanan (Logika AMAN 100%)
   const layananDariDb = await prisma.layanan.findMany({
     orderBy: { createdAt: "asc" }
   });
 
-  // Ambil Ulasan (Logika AMAN 100%)
   const ulasanDariDb = await prisma.ulasan.findMany({
     where: { status: "APPROVED" },
     orderBy: { createdAt: "desc" }
   });
   
-  // Ambil Portfolio (Logika AMAN 100%)
   const portfolioDariDb = await prisma.portfolio.findMany({ 
     orderBy: { createdAt: "desc" } 
   });
 
   return (
-    // BUNGKUSAN BARU: Mematikan sisa layar kosong di bawah footer
-    <div className="flex flex-col min-h-screen bg-[#000000] overflow-x-hidden">
+    // PENGUNCI LAPIS KEDUA: w-full, max-w-[100vw], overflow-x-hidden
+    <div className="flex flex-col min-h-screen bg-[#000000] w-full max-w-[100vw] overflow-x-hidden">
       <Navbar />
       
-      {/* flex-grow akan mendorong footer selalu presisi di paling bawah konten */}
-      <main className="flex-grow relative z-10">
+      <main className="flex-grow relative z-10 w-full">
         <Hero />
         <Calculator />
         <Services layananDb={layananDariDb} />

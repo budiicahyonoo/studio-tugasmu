@@ -49,7 +49,7 @@ export default function Footer() {
             </p>
             <div className="flex gap-4">
               <a 
-                href="https://instagram.com" 
+                href="https://www.instagram.com/studiotugasmu19/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="bg-[#14213D] p-3 rounded-full text-[#E5E5E5] hover:text-[#000000] hover:bg-[#FCA311] transition-all flex items-center justify-center"
