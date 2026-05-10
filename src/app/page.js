@@ -1,4 +1,5 @@
 import Navbar from "../components/shared/Navbar";
+import Footer from "../components/shared/Footer";
 import Hero from "../components/sections/Hero";
 import Calculator from "../components/sections/Calculator";
 import Services from "../components/sections/Services";
@@ -35,11 +36,7 @@ export default async function Home() {
         <Reviews ulasanDb={ulasanDariDb} />
       </main>
 
-      <footer className="relative z-10 py-8 text-center border-t border-white/10 bg-slate-950">
-        <p className="text-slate-500 text-sm">
-          © {new Date().getFullYear()} <span className="text-sky-400 font-medium">Studio Tugasmu</span>. All rights reserved.
-        </p>
-      </footer>
+      <Footer />
     </>
   );
 }
