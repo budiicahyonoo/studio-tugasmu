@@ -17,19 +17,19 @@ export async function tambahPortfolio(formData) {
     const kategori = formData.get("kategori");
     const file = formData.get("imageFile");
 
-    console.log("--- Memulai Proses Upload ---");
-    console.log("Judul:", judul);
-
     if (!file || file.size === 0) {
       throw new Error("Mohon pilih file gambar terlebih dahulu.");
     }
 
-    // 1. Konversi ke Buffer
+    // Insight: Batasi ukuran file (4MB) untuk mencegah Timeout di Vercel
+    if (file.size > 4000000) {
+      throw new Error("File terlalu besar. Maksimal ukuran adalah 4MB.");
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    console.log("1. File berhasil diubah ke buffer.");
 
-    // 2. Upload ke Cloudinary
+    // Insight: Alur upload dibungkus dalam Promise yang lebih rapi
     const uploadResponse = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { 
@@ -37,20 +37,14 @@ export async function tambahPortfolio(formData) {
           resource_type: "auto" 
         },
         (error, result) => {
-          if (error) {
-            console.error("Cloudinary Error:", error);
-            return reject(error);
-          }
+          if (error) return reject(error);
           resolve(result);
         }
       );
       uploadStream.end(buffer);
     });
 
-    console.log("2. Upload Cloudinary Berhasil. URL:", uploadResponse.secure_url);
-
-    // 3. Simpan ke Database Prisma/Supabase
-    const hasilDb = await prisma.portfolio.create({
+    await prisma.portfolio.create({
       data: {
         judul,
         kategori,
@@ -58,15 +52,15 @@ export async function tambahPortfolio(formData) {
       },
     });
 
-    console.log("3. Berhasil simpan ke Database dengan ID:", hasilDb.id);
-
+    // Insight: Melakukan refresh data di dashboard & halaman utama
     revalidatePath("/admin/dashboard");
     revalidatePath("/");
     
     return { success: true };
 
   } catch (error) {
-    console.error("ALUR GAGAL DI SINI:", error);
+    console.error("Gagal Upload Portfolio:", error.message);
+    // Mengembalikan error sebagai data agar UI tidak crash total
     return { success: false, error: error.message };
   }
 }
