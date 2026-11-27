@@ -1,653 +1,517 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import { AlignLeft, CheckCircle2, FileDown, Send } from "lucide-react";
-import { jsPDF } from "jspdf";
-import {
-  buildWhatsAppOrderMessage,
-  calculateEstimate,
-  formatRupiah,
-} from "../../lib/calculateEstimate";
+﻿"use client";
+import { useRef, useState } from "react";
 import { polishDescription } from "../../actions/ai";
 import { submitSimulasiOrder } from "../../actions/simulasi";
+import { resolveQuote } from "../../lib/quote";
+import {
+  buildWhatsAppOrderMessage,
+  formatRupiah,
+} from "../../lib/calculateEstimate";
 import { useToast } from "../shared/ToastProvider";
 import DatabaseUnavailable from "../shared/DatabaseUnavailable";
-
-const KATEGORI_LABEL = {
-  UMUM: "Umum",
-  KHUSUS: "Khusus",
-  PKL: "PKL",
-};
 
 export default function SimulasiClient({
   fakultasList = [],
   layananList = [],
-  nomorWhatsApp = "6283151195556",
+  nomorWhatsApp,
   initialLayananId = "",
+  initialJenjang = "MAHASISWA",
   dataUnavailable = false,
 }) {
   const { showToast } = useToast();
-
-  const defaultFakultas = fakultasList[0]?.id || "";
-  const defaultLayanan =
-    layananList.find((l) => l.id === initialLayananId)?.id || layananList[0]?.id || "";
-
-  const [nama, setNama] = useState("");
-  const [fakultasId, setFakultasId] = useState(defaultFakultas);
-  const [layananId, setLayananId] = useState(defaultLayanan);
-  const [paketId, setPaketId] = useState("");
-  const [jumlah, setJumlah] = useState(1);
-  const [judul, setJudul] = useState("");
-  const [deskripsiAsli, setDeskripsiAsli] = useState("");
-  const [deskripsiAI, setDeskripsiAI] = useState("");
-  const [useAiVersion, setUseAiVersion] = useState(false);
-
-  const [isPolishing, setIsPolishing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasConfirmedCalc, setHasConfirmedCalc] = useState(false);
+  const [form, setForm] = useState({
+    nama: "",
+    jenjang: initialJenjang,
+    fakultasId: fakultasList[0]?.id || "",
+    layananId:
+      layananList.find((item) => item.id === initialLayananId)?.id ||
+      layananList[0]?.id ||
+      "",
+    paketId: "",
+    jumlah: "1",
+    judul: "",
+    deskripsiAsli: "",
+  });
+  const [aiText, setAiText] = useState("");
+  const [useAi, setUseAi] = useState(false);
+  const [polishing, setPolishing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [reviewed, setReviewed] = useState("");
   const [lastOrder, setLastOrder] = useState(null);
-
-  const selectedFakultas = useMemo(
-    () => fakultasList.find((f) => f.id === fakultasId) || null,
-    [fakultasList, fakultasId]
-  );
-
-  const selectedLayanan = useMemo(
-    () => layananList.find((l) => l.id === layananId) || null,
-    [layananList, layananId]
-  );
-
-  const availablePakets = useMemo(() => {
-    if (!selectedLayanan || !selectedFakultas) return [];
-    return (selectedLayanan.paket || []).filter(
-      (p) => p.kelompok === selectedFakultas.kelompok
-    );
-  }, [selectedLayanan, selectedFakultas]);
-
-  const activePaket = useMemo(() => {
-    if (!availablePakets.length) return null;
-    return availablePakets.find((p) => p.id === paketId) || availablePakets[0];
-  }, [availablePakets, paketId]);
-
-  const activeTarif = useMemo(() => {
-    if (!selectedLayanan || !selectedFakultas) return null;
-    return (
-      (selectedLayanan.tarif || []).find((t) => t.kelompok === selectedFakultas.kelompok) ||
-      null
-    );
-  }, [selectedLayanan, selectedFakultas]);
-
-  const activeBenefits = useMemo(() => {
-    if (!selectedLayanan) return [];
-    if (selectedLayanan.tipeHitung === "PER_PAKET" && activePaket?.benefit?.length) {
-      return activePaket.benefit;
-    }
-    return selectedLayanan.benefit || [];
-  }, [selectedLayanan, activePaket]);
-
-  const liveCalculation = useMemo(() => {
-    if (!selectedLayanan || !selectedFakultas) {
-      return { total: 0, error: "Pilih fakultas dan layanan." };
-    }
-    try {
-      if (selectedLayanan.tipeHitung === "PER_PAKET") {
-        if (!activePaket) {
-          return { total: 0, error: "Paket untuk kelompok fakultas ini belum tersedia." };
-        }
-        return {
-          total: calculateEstimate({
-            tipeHitung: "PER_PAKET",
-            paketHarga: activePaket.harga,
-          }),
-          error: null,
-        };
-      }
-
-      if (!activeTarif) {
-        return { total: 0, error: "Tarif untuk kelompok fakultas ini belum diatur admin." };
-      }
-
-      const qty = Number(jumlah);
-      if (!Number.isInteger(qty) || qty < 1) {
-        return { total: 0, error: "Jumlah minimal 1." };
-      }
-
-      return {
-        total: calculateEstimate({
-          tipeHitung: selectedLayanan.tipeHitung,
-          hargaPerUnit: activeTarif.hargaPerUnit,
-          jumlah: qty,
-        }),
-        error: null,
-      };
-    } catch (err) {
-      return { total: 0, error: err.message };
-    }
-  }, [selectedLayanan, selectedFakultas, activePaket, activeTarif, jumlah]);
-
-  if (dataUnavailable) {
-    return <DatabaseUnavailable dataLabel="Data simulasi harga" />;
+  const [contactUrl, setContactUrl] = useState("");
+  const request = useRef({ payload: "", id: "" });
+  const service = layananList.find((item) => item.id === form.layananId);
+  const faculty =
+    form.jenjang === "SISWA"
+      ? fakultasList.find((item) => item.kelompok === "SOSHUM")
+      : fakultasList.find((item) => item.id === form.fakultasId);
+  const group = form.jenjang === "SISWA" ? "SOSHUM" : faculty?.kelompok;
+  const packages =
+    service?.paket.filter((item) => item.kelompok === group) || [];
+  const selectedPackage =
+    packages.find((item) => item.id === form.paketId) || packages[0];
+  const rate = service?.tarif.find((item) => item.kelompok === group);
+  let quote;
+  let quoteError;
+  try {
+    quote = resolveQuote({
+      layanan: service,
+      fakultas: faculty,
+      jenjang: form.jenjang,
+      paketId: selectedPackage?.id,
+      jumlah: Number(form.jumlah),
+    });
+  } catch (error) {
+    quoteError = error.message;
   }
-
-  if (fakultasList.length === 0 || layananList.length === 0) {
-    return (
-      <div className="surface-card p-6 text-center text-sm text-[#526277]">
-        Katalog layanan atau fakultas belum tersedia. Hubungi admin untuk melengkapi data.
-      </div>
-    );
-  }
-
-  const handlePolishAI = async () => {
-    if (deskripsiAsli.trim().length < 5) {
-      showToast("Tulis deskripsi tugas minimal 5 karakter sebelum dirapikan.", "error");
-      return;
-    }
-
-    setIsPolishing(true);
+  const payload = {
+    ...form,
+    fakultasId: faculty?.id,
+    paketId: service?.tipeHitung === "PER_PAKET" ? selectedPackage?.id : null,
+    jumlah: service?.tipeHitung === "PER_PAKET" ? null : Number(form.jumlah),
+    deskripsiAI: useAi ? aiText : null,
+    quotedTotal: quote?.total,
+  };
+  const fingerprint = JSON.stringify(payload);
+  const change = (name, value) => {
+    setForm((old) => ({ ...old, [name]: value }));
+    setLastOrder(null);
+    setContactUrl("");
+  };
+  const field = (name, label, props = {}) => (
+    <div>
+      <label
+        htmlFor={`sim-${name}`}
+        className="mb-2 block text-sm font-semibold"
+      >
+        {label}
+      </label>
+      <input
+        id={`sim-${name}`}
+        className="field-input"
+        name={name}
+        value={form[name]}
+        onChange={(event) => change(name, event.target.value)}
+        {...props}
+      />
+    </div>
+  );
+  const waUrl = (data, code) =>
+    `https://wa.me/${String(data.nomorWhatsApp || nomorWhatsApp || "").replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsAppOrderMessage({ ...data, kodePesanan: code, nama: form.nama, judul: form.judul, deskripsi: useAi ? aiText : form.deskripsiAsli, fakultasNama: form.jenjang === "SISWA" ? "Siswa (tarif Soshum)" : data.fakultasNama }))}`;
+  async function polish() {
+    setPolishing(true);
     try {
-      const res = await polishDescription({
-        deskripsi: deskripsiAsli,
-        layananNama: selectedLayanan?.nama,
+      const result = await polishDescription({
+        deskripsi: form.deskripsiAsli,
+        layananNama: service?.nama,
       });
-
-      if (res.ok && !res.usedFallback) {
-        setDeskripsiAI(res.deskripsiRapih);
-        setUseAiVersion(true);
-        showToast("Deskripsi berhasil dirapikan. Kamu bisa meninjau atau mengubahnya.", "success");
-      } else {
-        showToast(res.message || "AI sedang sibuk. Deskripsi asli tetap dipakai.", "info");
-      }
+      if (result.ok) {
+        setAiText(result.deskripsiRapih);
+        setUseAi(false);
+        showToast(
+          "Hasil perapian siap ditinjau. Pilih versi yang akan digunakan.",
+          "success",
+        );
+      } else
+        showToast(result.message || "Deskripsi asli tetap digunakan.", "info");
     } catch {
-      showToast("Perapian AI gagal. Deskripsi asli tetap dipakai.", "info");
+      showToast(
+        "Perapian belum tersedia. Deskripsi asli tetap digunakan.",
+        "info",
+      );
     } finally {
-      setIsPolishing(false);
+      setPolishing(false);
     }
-  };
-
-  const effectiveDescription =
-    useAiVersion && deskripsiAI.trim() ? deskripsiAI.trim() : deskripsiAsli.trim();
-
-  const handleHitungClick = (e) => {
-    e.preventDefault();
-    if (!nama.trim() || !judul.trim() || deskripsiAsli.trim().length < 5) {
-      showToast("Lengkapi nama, judul tugas, dan deskripsi terlebih dahulu.", "error");
+  }
+  function review(event) {
+    event.preventDefault();
+    if (quoteError) {
+      showToast(quoteError, "error");
       return;
     }
-    if (liveCalculation.error) {
-      showToast(liveCalculation.error, "error");
-      return;
-    }
-    setHasConfirmedCalc(true);
-    showToast("Hasil simulasi siap ditinjau. Klik Setuju untuk mengirim ke WhatsApp.", "success");
-  };
-
-  const handleApproveAndSend = async () => {
-    if (!nama.trim() || !judul.trim() || deskripsiAsli.trim().length < 5) {
-      showToast("Lengkapi nama, judul tugas, dan deskripsi terlebih dahulu.", "error");
-      return;
-    }
-    if (liveCalculation.error) {
-      showToast(liveCalculation.error, "error");
-      return;
-    }
-
-    setIsSubmitting(true);
+    setReviewed(fingerprint);
+    showToast(
+      "Rincian siap. Periksa harga dan benefit sebelum menyetujui.",
+      "success",
+    );
+  }
+  async function approve() {
+    if (sending || reviewed !== fingerprint || quoteError) return;
+    if (request.current.payload !== fingerprint)
+      request.current = { payload: fingerprint, id: crypto.randomUUID() };
+    setSending(true);
     try {
       const result = await submitSimulasiOrder({
-        nama: nama.trim(),
-        fakultasId: selectedFakultas.id,
-        layananId: selectedLayanan.id,
-        paketId: selectedLayanan.tipeHitung === "PER_PAKET" ? activePaket?.id : null,
-        judul: judul.trim(),
-        deskripsiAsli: deskripsiAsli.trim(),
-        deskripsiAI: useAiVersion && deskripsiAI.trim() ? deskripsiAI.trim() : null,
-        jumlah: selectedLayanan.tipeHitung === "PER_PAKET" ? null : Number(jumlah),
-        fallbackTotal: liveCalculation.total,
-        fallbackEstimasi: selectedLayanan.estimasiSelesai,
+        ...payload,
+        requestId: request.current.id,
       });
-
       if (!result.ok) {
-        showToast(result.error || "Gagal memproses pesanan.", "error");
+        showToast(result.error, "error");
+        if (result.canContact && nomorWhatsApp)
+          setContactUrl(waUrl(quote, null));
         return;
       }
-
-      const finalWaNumber = String(result.nomorWhatsApp || nomorWhatsApp).replace(/[^0-9]/g, "");
-      const message = buildWhatsAppOrderMessage({
-        kodePesanan: result.kodePesanan,
-        nama: nama.trim(),
-        fakultasNama: result.fakultasNama || selectedFakultas.nama,
-        kelompok: result.kelompok || selectedFakultas.kelompok,
-        layananNama: result.layananNama || selectedLayanan.nama,
-        paketNama: result.paketNama || activePaket?.nama,
-        tipeHitung: selectedLayanan.tipeHitung,
-        jumlah: Number(jumlah),
-        judul: judul.trim(),
-        deskripsi: effectiveDescription,
-        total: result.total || liveCalculation.total,
-        estimasiSelesai: result.estimasiSelesai || selectedLayanan.estimasiSelesai,
-      });
-
-      const waUrl = `https://wa.me/${finalWaNumber}?text=${encodeURIComponent(message)}`;
-      setLastOrder({
-        kodePesanan: result.kodePesanan,
-        total: result.total || liveCalculation.total,
-        estimasiSelesai: result.estimasiSelesai || selectedLayanan.estimasiSelesai,
-        waUrl,
-      });
-
-      if (result.dbSaved) {
-        showToast(`Pesanan ${result.kodePesanan} tersimpan. Mengalihkan ke WhatsApp.`, "success");
-      } else {
-        showToast("Simulasi tetap dilanjutkan ke WhatsApp admin.", "info");
-      }
-
-      window.open(waUrl, "_blank", "noopener,noreferrer");
+      const url = waUrl(result, result.kodePesanan);
+      setLastOrder({ ...result, waUrl: url });
+      showToast(
+        "Pesanan tersimpan. Kirim pesan yang sudah disiapkan di WhatsApp.",
+        "success",
+      );
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      showToast("Terjadi kendala saat mengirim pesanan. Coba lagi.", "error");
+      showToast("Pesanan belum dapat diproses. Coba lagi.", "error");
     } finally {
-      setIsSubmitting(false);
+      setSending(false);
     }
-  };
-
-  const handleDownloadPdf = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.setTextColor(22, 50, 79);
-    doc.text("RINGKASAN SIMULASI HARGA - STUDIO TUGASMU", 20, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(23, 43, 64);
-    doc.text(`Tanggal: ${new Date().toLocaleDateString("id-ID")}`, 20, 34);
-    if (lastOrder?.kodePesanan) {
-      doc.text(`Kode Pesanan: ${lastOrder.kodePesanan}`, 20, 42);
+  }
+  async function download() {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("Ringkasan simulasi Studio Tugasmu", 18, 22);
+      doc.setFontSize(11);
+      const lines = [
+        lastOrder
+          ? `Kode: ${lastOrder.kodePesanan}`
+          : "Simulasi belum menjadi pesanan.",
+        `Nama: ${form.nama}`,
+        `Layanan: ${service?.nama}`,
+        `Kelompok: ${group}`,
+        quote?.paketNama
+          ? `Paket: ${quote.paketNama}`
+          : `Jumlah: ${form.jumlah} ${service?.tipeHitung === "PER_SLIDE" ? "slide" : "lembar"}`,
+        `Judul: ${form.judul}`,
+        `Total: ${formatRupiah(quote.total)}`,
+        `Estimasi: ${quote.estimasiSelesai}`,
+      ];
+      let y = 35;
+      for (const line of lines) {
+        const wrapped = doc.splitTextToSize(line, 170);
+        doc.text(wrapped, 18, y);
+        y += wrapped.length * 6 + 4;
+      }
+      doc.save("simulasi-studio-tugasmu.pdf");
+    } catch {
+      showToast("Ringkasan PDF belum dapat diunduh.", "error");
     }
-    doc.text(`Nama: ${nama || "-"}`, 20, 52);
-    doc.text(`Fakultas: ${selectedFakultas?.nama || "-"} (${selectedFakultas?.kelompok || "-"})`, 20, 60);
-    doc.text(`Layanan: ${selectedLayanan?.nama || "-"}`, 20, 68);
-    const detail =
-      selectedLayanan?.tipeHitung === "PER_PAKET"
-        ? `Paket: ${activePaket?.nama || "-"}`
-        : `Jumlah: ${jumlah} ${selectedLayanan?.tipeHitung === "PER_SLIDE" ? "slide" : "lembar"}`;
-    doc.text(detail, 20, 76);
-    doc.text(`Judul: ${judul || "-"}`, 20, 84);
-    doc.setFontSize(13);
-    doc.text(`Total Harga: ${formatRupiah(liveCalculation.total)}`, 20, 98);
-    doc.text(`Estimasi Selesai: ${selectedLayanan?.estimasiSelesai || "1x24 jam"}`, 20, 106);
-    doc.save(`Simulasi_StudioTugasmu_${Date.now()}.pdf`);
-  };
-
-  const unitLabel = selectedLayanan?.tipeHitung === "PER_SLIDE" ? "slide" : "lembar";
-  const saintekList = fakultasList.filter((f) => f.kelompok === "SAINTEK");
-  const soshumList = fakultasList.filter((f) => f.kelompok === "SOSHUM");
-
+  }
+  if (dataUnavailable)
+    return <DatabaseUnavailable dataLabel="Simulasi harga" />;
+  if (!layananList.length || !fakultasList.length)
+    return (
+      <p className="empty-state">
+        Katalog atau fakultas belum tersedia. Hubungi admin untuk informasi
+        layanan.
+      </p>
+    );
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <form
-        onSubmit={handleHitungClick}
-        className="surface-card space-y-6 p-5 sm:p-7 lg:col-span-7"
-      >
-        <div className="border-b border-[#DCE4EB] pb-4">
-          <h2 className="text-base font-bold text-[#16324F]">1. Data Pemesan & Fakultas</h2>
-          <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="sim-nama" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
-                Nama lengkap
-              </label>
-              <input
-                id="sim-nama"
-                type="text"
-                required
-                value={nama}
-                onChange={(e) => setNama(e.target.value)}
-                placeholder="Nama kamu"
-                className="field-input"
-              />
+    <div className="grid items-start gap-7 lg:grid-cols-[1.3fr_1fr]">
+      <form onSubmit={review} className="surface-card p-5 sm:p-7">
+        <fieldset disabled={sending} className="space-y-7">
+          <section>
+            <h2 className="form-section-title">1. Data pengguna</h2>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              {field("nama", "Nama lengkap", {
+                required: true,
+                minLength: 2,
+                maxLength: 100,
+                autoComplete: "name",
+              })}
+              <div>
+                <label
+                  htmlFor="sim-jenjang"
+                  className="mb-2 block text-sm font-semibold"
+                >
+                  Jenjang pendidikan
+                </label>
+                <select
+                  id="sim-jenjang"
+                  className="field-input"
+                  value={form.jenjang}
+                  onChange={(event) => change("jenjang", event.target.value)}
+                >
+                  <option value="MAHASISWA">Mahasiswa</option>
+                  <option value="SISWA">Siswa</option>
+                </select>
+              </div>
             </div>
-
-            <div>
-              <label htmlFor="sim-fakultas" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
-                Fakultas / Rumpun
-              </label>
-              <select
-                id="sim-fakultas"
-                value={fakultasId}
-                onChange={(e) => {
-                  setFakultasId(e.target.value);
-                  setPaketId("");
-                }}
-                className="field-input"
-              >
-                {soshumList.length > 0 && (
-                  <optgroup label="Kelompok Soshum">
-                    {soshumList.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.nama} (Soshum)
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {saintekList.length > 0 && (
-                  <optgroup label="Kelompok Saintek">
-                    {saintekList.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.nama} (Saintek)
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4 border-b border-[#DCE4EB] pb-5">
-          <h2 className="text-base font-bold text-[#16324F]">2. Layanan & Cakupan</h2>
-          <div>
-            <label htmlFor="sim-layanan" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
+            {form.jenjang === "MAHASISWA" ? (
+              <div className="mt-5">
+                <label
+                  htmlFor="sim-fakultas"
+                  className="mb-2 block text-sm font-semibold"
+                >
+                  Fakultas / rumpun
+                </label>
+                <select
+                  id="sim-fakultas"
+                  className="field-input"
+                  value={form.fakultasId}
+                  onChange={(event) => change("fakultasId", event.target.value)}
+                >
+                  {["SOSHUM", "SAINTEK"].map((value) => (
+                    <optgroup key={value} label={value}>
+                      {fakultasList
+                        .filter((item) => item.kelompok === value)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.nama}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-[#526277]">
+                Tugas siswa sementara menggunakan kelompok Soshum.
+              </p>
+            )}
+          </section>
+          <section className="border-t border-[#DCE4EB] pt-6">
+            <h2 className="form-section-title">2. Data layanan</h2>
+            <label
+              htmlFor="sim-layanan"
+              className="mt-4 mb-2 block text-sm font-semibold"
+            >
               Jenis layanan
             </label>
             <select
               id="sim-layanan"
-              value={layananId}
-              onChange={(e) => {
-                setLayananId(e.target.value);
-                setPaketId("");
-              }}
+              value={form.layananId}
+              onChange={(event) => change("layananId", event.target.value)}
               className="field-input"
             >
-              {["UMUM", "KHUSUS", "PKL"].map((kat) => {
-                const items = layananList.filter((l) => l.kategori === kat);
-                if (!items.length) return null;
-                return (
-                  <optgroup key={kat} label={`Kategori ${KATEGORI_LABEL[kat]}`}>
-                    {items.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.nama}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
+              {layananList.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nama}
+                </option>
+              ))}
             </select>
-          </div>
-
-          {selectedLayanan?.tipeHitung === "PER_PAKET" ? (
-            <div>
-              <span className="mb-2 block text-sm font-semibold text-[#172B40]">
-                Pilih paket ({selectedFakultas?.kelompok === "SAINTEK" ? "Saintek" : "Soshum"})
-              </span>
-              {availablePakets.length === 0 ? (
-                <p className="rounded-lg border border-[#B42318] bg-[#FEF3F2] p-3 text-sm text-[#8F1D14]">
-                  Paket untuk kelompok fakultas ini belum tersedia.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {availablePakets.map((pkt) => {
-                    const isSelected = activePaket?.id === pkt.id;
-                    return (
-                      <button
-                        key={pkt.id}
-                        type="button"
-                        aria-pressed={isSelected}
-                        onClick={() => setPaketId(pkt.id)}
-                        className={`flex min-h-11 flex-col items-start rounded-xl border p-4 text-left transition-colors ${
-                          isSelected
-                            ? "border-[#167D8D] bg-[#E8F4F6]"
-                            : "border-[#DCE4EB] bg-[#F7F8FA] hover:border-[#167D8D]/60"
-                        }`}
-                      >
-                        <span className="text-sm font-bold text-[#16324F]">{pkt.nama}</span>
-                        <span className="mt-1 text-base font-bold text-[#116471]">
-                          {formatRupiah(pkt.harga)}
-                        </span>
-                        {pkt.deskripsi && (
-                          <span className="mt-1 text-xs text-[#526277]">{pkt.deskripsi}</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-[#DCE4EB] bg-[#F7F8FA] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label htmlFor="sim-jumlah" className="text-sm font-semibold text-[#172B40]">
-                  Jumlah {unitLabel}
+            {service?.tipeHitung === "PER_PAKET" ? (
+              <div className="mt-5">
+                <label
+                  htmlFor="sim-paket"
+                  className="mb-2 block text-sm font-semibold"
+                >
+                  Paket dan cakupan ({group})
                 </label>
-                <div className="text-xs font-medium text-[#172B40]">
-                  <span>
-                    {activeTarif
-                      ? `${formatRupiah(activeTarif.hargaPerUnit)} / ${unitLabel}`
-                      : "Tarif belum diatur"}
-                  </span>
-                  <span className="mx-2 text-[#526277]">|</span>
-                  <span className="font-semibold text-[#116471]">
-                    Estimasi {selectedLayanan?.estimasiSelesai || "1x24 jam"}
-                  </span>
-                </div>
+                <select
+                  id="sim-paket"
+                  className="field-input"
+                  value={selectedPackage?.id || ""}
+                  onChange={(event) => change("paketId", event.target.value)}
+                  disabled={!packages.length}
+                >
+                  {!packages.length && (
+                    <option value="">Paket belum diatur admin</option>
+                  )}
+                  {packages.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nama} · {formatRupiah(item.harga)}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <input
-                id="sim-jumlah"
-                type="number"
-                min={1}
-                max={1000}
-                required
-                value={jumlah}
-                onChange={(e) => setJumlah(e.target.value)}
-                className="field-input mt-2"
-              />
+            ) : (
+              <div className="mt-5">
+                {field(
+                  "jumlah",
+                  `Jumlah ${service?.tipeHitung === "PER_SLIDE" ? "slide" : "lembar"}`,
+                  {
+                    type: "number",
+                    min: 1,
+                    max: 1000,
+                    required: true,
+                    inputMode: "numeric",
+                  },
+                )}
+                <p className="mt-2 text-sm text-[#116471]">
+                  {rate
+                    ? `${formatRupiah(rate.hargaPerUnit)} / ${service?.tipeHitung === "PER_SLIDE" ? "slide" : "lembar"}`
+                    : "Tarif belum diatur admin"}{" "}
+                  · {service?.estimasiSelesai}
+                </p>
+              </div>
+            )}
+          </section>
+          <section className="border-t border-[#DCE4EB] pt-6">
+            <h2 className="form-section-title">3. Detail tugas</h2>
+            <div className="mt-4">
+              {field("judul", "Judul atau topik tugas", {
+                required: true,
+                minLength: 3,
+                maxLength: 200,
+              })}
             </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <h2 className="text-base font-bold text-[#16324F]">3. Judul & Instruksi Tugas</h2>
-          <div>
-            <label htmlFor="sim-judul" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
-              Judul atau topik tugas
+            <label
+              htmlFor="sim-deskripsi"
+              className="mt-5 mb-2 block text-sm font-semibold"
+            >
+              Deskripsi dan instruksi
             </label>
-            <input
-              id="sim-judul"
-              type="text"
-              required
-              value={judul}
-              onChange={(e) => setJudul(e.target.value)}
-              placeholder="Contoh: Analisis Dampak Kebijakan Fiskal Daerah"
-              className="field-input"
-            />
-          </div>
-
-          <div>
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-              <label htmlFor="sim-deskripsi" className="text-sm font-semibold text-[#172B40]">
-                Deskripsi dan instruksi tugas
-              </label>
-              <button
-                type="button"
-                onClick={handlePolishAI}
-                disabled={isPolishing}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#167D8D] bg-[#E8F4F6] px-3.5 py-1.5 text-xs font-bold text-[#116471] transition-colors hover:bg-[#D5ECEF] disabled:opacity-60"
-              >
-                <AlignLeft aria-hidden="true" size={14} />
-                <span>{isPolishing ? "Merapikan..." : "Rapikan dengan AI"}</span>
-              </button>
-            </div>
             <textarea
               id="sim-deskripsi"
-              rows={4}
+              className="field-input"
+              rows={5}
               required
-              value={deskripsiAsli}
-              onChange={(e) => setDeskripsiAsli(e.target.value)}
-              placeholder="Tulis kebutuhan tugasmu secara bebas, misalnya format sitasi, referensi khusus, atau instruksi dosen."
-              className="field-input resize-y"
+              minLength={5}
+              maxLength={4000}
+              value={form.deskripsiAsli}
+              onChange={(event) => {
+                change("deskripsiAsli", event.target.value);
+                setAiText("");
+                setUseAi(false);
+              }}
             />
-            <p className="mt-1.5 text-xs text-[#526277]">
-              Perapian AI hanya merapikan tata bahasa dan poin instruksi, tidak mengubah harga atau jumlah {unitLabel}.
+            <p className="mt-2 text-sm leading-6 text-[#526277]">
+              Perapian bersifat opsional. Teks deskripsi dikirim ke Groq atau
+              OpenRouter hanya saat tombol ditekan. Hindari data pribadi di
+              deskripsi.
             </p>
-
-            {deskripsiAI && (
-              <div className="mt-3 rounded-xl border border-[#167D8D]/40 bg-[#E8F4F6] p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#16324F]">
-                    Hasil perapian AI
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setUseAiVersion(true)}
-                      className={`min-h-10 rounded-lg px-3 text-xs font-semibold ${
-                        useAiVersion
-                          ? "bg-[#16324F] text-white"
-                          : "border border-[#16324F] bg-white text-[#16324F]"
-                      }`}
-                    >
-                      Pakai versi rapi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUseAiVersion(false)}
-                      className={`min-h-10 rounded-lg px-3 text-xs font-semibold ${
-                        !useAiVersion
-                          ? "bg-[#116471] text-white"
-                          : "border border-[#DCE4EB] bg-white text-[#172B40]"
-                      }`}
-                    >
-                      Pakai deskripsi asli
-                    </button>
-                  </div>
-                </div>
+            <button
+              type="button"
+              className="btn-secondary mt-3"
+              disabled={polishing || form.deskripsiAsli.trim().length < 5}
+              onClick={polish}
+            >
+              {polishing
+                ? "Merapikan deskripsi..."
+                : "Rapikan deskripsi dengan AI"}
+            </button>
+            {aiText && (
+              <div className="mt-4 rounded-xl bg-[#E8F4F6] p-4">
+                <label
+                  htmlFor="sim-ai"
+                  className="mb-2 block text-sm font-semibold"
+                >
+                  Tinjau atau edit hasil perapian
+                </label>
                 <textarea
-                  aria-label="Edit hasil perapian AI"
-                  rows={3}
-                  value={deskripsiAI}
-                  onChange={(e) => setDeskripsiAI(e.target.value)}
-                  className="field-input mt-2"
+                  id="sim-ai"
+                  className="field-input"
+                  rows={5}
+                  maxLength={4000}
+                  value={aiText}
+                  onChange={(event) => setAiText(event.target.value)}
                 />
+                <label className="mt-3 flex min-h-11 items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={useAi}
+                    onChange={(event) => setUseAi(event.target.checked)}
+                  />
+                  Gunakan hasil perapian ini
+                </label>
               </div>
             )}
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="btn-secondary w-full bg-[#E8F4F6] lg:hidden"
-        >
-          Hitung & Tinjau Ringkasan
-        </button>
+          </section>
+          <button
+            type="submit"
+            className="btn-primary w-full"
+            disabled={Boolean(quoteError)}
+          >
+            Hitung dan tinjau rincian
+          </button>
+        </fieldset>
       </form>
-
-      <aside className="lg:col-span-5">
-        <div className="surface-card sticky top-24 overflow-hidden">
-          <div className="border-b border-[#DCE4EB] bg-[#16324F] px-6 py-4 text-white">
-            <h2 className="text-lg font-bold">Hasil Simulasi Harga</h2>
-          </div>
-
-          <div className="p-5 sm:p-6">
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#526277]">Fakultas</dt>
-                <dd className="text-right font-semibold text-[#172B40]">
-                  {selectedFakultas?.nama} ({selectedFakultas?.kelompok})
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#526277]">Layanan</dt>
-                <dd className="text-right font-semibold text-[#172B40]">
-                  {selectedLayanan?.nama}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#526277]">Rincian</dt>
-                <dd className="text-right font-semibold text-[#172B40]">
-                  {selectedLayanan?.tipeHitung === "PER_PAKET"
-                    ? activePaket?.nama || "-"
-                    : `${jumlah || 0} ${unitLabel}`}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-[#526277]">Estimasi selesai</dt>
-                <dd className="text-right">
-                  <span className="rounded-md bg-[#F4B860] px-2.5 py-0.5 text-xs font-bold text-[#16324F]">
-                    {selectedLayanan?.estimasiSelesai || "1x24 jam"}
-                  </span>
-                </dd>
-              </div>
-            </dl>
-
-            <div className="mt-5 rounded-xl border border-[#DCE4EB] bg-[#F7F8FA] p-4">
-              <div className="text-xs font-semibold text-[#526277]">Harga pasti</div>
-              <div className="mt-1 text-3xl font-bold text-[#16324F]" aria-live="polite">
-                {liveCalculation.error ? "-" : formatRupiah(liveCalculation.total)}
-              </div>
-              {liveCalculation.error && (
-                <p className="mt-1 text-xs font-medium text-[#8F1D14]">{liveCalculation.error}</p>
-              )}
-            </div>
-
-            {activeBenefits.length > 0 && (
-              <div className="mt-5">
-                <h3 className="text-sm font-bold text-[#16324F]">Benefit yang termasuk</h3>
-                <ul className="mt-2.5 space-y-2">
-                  {activeBenefits.map((b) => (
-                    <li key={b.id} className="flex items-start gap-2 text-sm text-[#526277]">
-                      <CheckCircle2
-                        aria-hidden="true"
-                        size={16}
-                        className="mt-0.5 shrink-0 text-[#116471]"
-                      />
-                      <span>{b.teks}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-6 space-y-3">
-              <button
-                type="button"
-                onClick={handleApproveAndSend}
-                disabled={isSubmitting || Boolean(liveCalculation.error)}
-                className="btn-primary w-full py-3"
-              >
-                <Send aria-hidden="true" size={17} />
-                <span>
-                  {isSubmitting ? "Menyimpan pesanan..." : "Setuju & Kirim ke WhatsApp"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDownloadPdf}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#DCE4EB] bg-white px-4 py-2.5 text-sm font-semibold text-[#172B40] transition-colors hover:bg-[#F7F8FA]"
-              >
-                <FileDown aria-hidden="true" size={17} />
-                <span>Unduh ringkasan PDF</span>
-              </button>
-            </div>
-
-            {(hasConfirmedCalc || lastOrder) && (
-              <div className="mt-4 rounded-xl border border-[#167D8D]/30 bg-[#E8F4F6] p-3 text-xs text-[#172B40]">
-                {lastOrder ? (
-                  <div>
-                    Pesanan <span className="font-bold">{lastOrder.kodePesanan}</span> telah dicatat.
-                    Jika jendela WhatsApp tidak terbuka otomatis,{" "}
-                    <a
-                      href={lastOrder.waUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-bold text-[#116471] underline"
-                    >
-                      buka WhatsApp di sini
-                    </a>
-                    .
-                  </div>
-                ) : (
-                  "Ringkasan harga siap dikirim. Tekan Setuju & Kirim ke WhatsApp untuk mencatat pesanan."
-                )}
-              </div>
-            )}
-          </div>
+      <aside className="surface-card p-5 sm:p-7 lg:sticky lg:top-24">
+        <h2 className="text-xl font-bold text-[#16324F]">Rincian simulasimu</h2>
+        <div className="my-6 border-y border-[#DCE4EB] py-5" aria-live="polite">
+          <p className="text-sm text-[#526277]">Total biaya</p>
+          <p className="mt-2 text-4xl font-extrabold text-[#16324F]">
+            {quoteError ? "Belum tersedia" : formatRupiah(quote.total)}
+          </p>
+          {quoteError && (
+            <p className="mt-3 text-sm text-[#8F1D14]">{quoteError}</p>
+          )}
         </div>
+        <dl className="space-y-4 text-sm">
+          <div>
+            <dt className="text-[#526277]">Layanan</dt>
+            <dd className="mt-1 font-semibold">
+              {service?.nama} · {group}
+            </dd>
+          </div>
+          {quote?.paketNama && (
+            <div>
+              <dt className="text-[#526277]">Cakupan</dt>
+              <dd className="mt-1 font-semibold">
+                {quote.paketNama} (harga total)
+              </dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-[#526277]">Estimasi selesai</dt>
+            <dd className="mt-1 font-semibold">{service?.estimasiSelesai}</dd>
+          </div>
+        </dl>
+        {!!quote?.benefit.length && (
+          <div className="mt-6">
+            <h3 className="text-sm font-bold">Benefit yang termasuk</h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[#526277]">
+              {quote.benefit.map((item) => (
+                <li key={item.id}>{item.teks}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className="mt-6 rounded-lg bg-[#FEF6E7] p-3 text-sm leading-6 text-[#172B40]">
+          {reviewed === fingerprint
+            ? "Rincian sudah ditinjau. Dengan menyetujui, data ini disimpan sebagai pesanan dan pesan disiapkan di WhatsApp."
+            : "Lengkapi formulir dan tekan Hitung dan tinjau rincian sebelum menyetujui."}
+        </p>
+        <button
+          type="button"
+          onClick={approve}
+          disabled={
+            sending ||
+            Boolean(quoteError) ||
+            reviewed !== fingerprint ||
+            Boolean(lastOrder)
+          }
+          className="btn-primary mt-4 w-full"
+        >
+          {sending ? "Menyimpan pesanan..." : "Setuju dan buka WhatsApp"}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary mt-3 w-full"
+          onClick={download}
+          disabled={Boolean(quoteError)}
+        >
+          Unduh ringkasan PDF
+        </button>
+        {lastOrder && (
+          <div role="status" className="mt-4 break-words text-sm leading-7">
+            <p>
+              Pesanan tersimpan: <strong>{lastOrder.kodePesanan}</strong>.
+            </p>
+            <a
+              href={lastOrder.waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center font-bold text-[#116471] underline"
+            >
+              Buka kembali pesan WhatsApp
+            </a>
+            <p>Tekan Kirim di WhatsApp agar pesan diterima admin.</p>
+          </div>
+        )}
+        {contactUrl && (
+          <div className="mt-4 text-sm leading-7">
+            <p>Pesanan belum tercatat di sistem.</p>
+            <a
+              href={contactUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center font-bold text-[#116471] underline"
+            >
+              Kirim rincian tanpa kode ke admin
+            </a>
+          </div>
+        )}
       </aside>
     </div>
   );

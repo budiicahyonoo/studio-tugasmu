@@ -8,23 +8,35 @@ import {
   createAdminSession,
   verifyPassword,
 } from "../lib/auth";
-import { checkRateLimit, resetRateLimit } from "../lib/rateLimit";
+import { checkRateLimit, resetRateLimit } from "../lib/persistentRateLimit";
+import { publicError } from "../lib/validation";
 
 export async function loginAdmin(formData) {
   const username = String(formData.get("username") || "").trim();
   const password = String(formData.get("password") || "");
 
-  if (!username || !password) {
+  if (
+    !username ||
+    !password ||
+    username.length > 100 ||
+    password.length > 1024
+  ) {
     return { error: "Username dan password wajib diisi." };
   }
 
   const headerList = await headers();
-  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip =
+    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const rateKey = `login:${ip}:${username.toLowerCase()}`;
-  const rate = checkRateLimit(rateKey, { limit: 5, windowMs: 15 * 60 * 1000 });
+  const rate = await checkRateLimit(rateKey, {
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
 
   if (!rate.allowed) {
-    return { error: "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit." };
+    return {
+      error: "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.",
+    };
   }
 
   try {
@@ -36,11 +48,14 @@ export async function loginAdmin(formData) {
       return { error: "Username atau password salah." };
     }
 
-    resetRateLimit(rateKey);
+    await resetRateLimit(rateKey);
     await createAdminSession(admin);
   } catch (error) {
-    console.error("Gagal memproses login admin:", error);
-    return { error: "Layanan autentikasi sedang tidak tersedia. Periksa koneksi database." };
+    publicError("auth.login", error);
+    return {
+      error:
+        "Layanan autentikasi sedang tidak tersedia. Periksa koneksi database.",
+    };
   }
 
   redirect("/admin/dashboard");

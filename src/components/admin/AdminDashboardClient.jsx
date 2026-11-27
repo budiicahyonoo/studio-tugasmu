@@ -21,6 +21,7 @@ import { useToast } from "../shared/ToastProvider";
 import {
   FakultasPanel,
   LayananPanel,
+  KategoriPanel,
   PaketBenefitPanel,
   TarifPanel,
 } from "./AdminCatalogPanels";
@@ -29,50 +30,133 @@ import {
   PengaturanPanel,
   PesananPanel,
   RingkasanPanel,
-  UlasanPortfolioPanel,
 } from "./AdminOperationsPanels";
+import { FaqPanel, GalleryPanel } from "./AdminContentPanels";
 
 const NAV_GROUPS = [
   {
     label: "Operasional",
     items: [
-      { id: "ringkasan", label: "Ringkasan", icon: LayoutDashboard, desc: "Pantau pesanan baru, verifikasi QRIS, dan moderasi ulasan." },
-      { id: "pesanan", label: "Pesanan", icon: ShoppingBag, desc: "Kelola status pesanan dari simulasi harga dan cari riwayat." },
-      { id: "pembayaran", label: "Pembayaran QRIS", icon: CreditCard, desc: "Verifikasi bukti pembayaran QRIS SeaBank dan unggah hasil PDF Turnitin." },
+      {
+        id: "ringkasan",
+        label: "Ringkasan",
+        icon: LayoutDashboard,
+        desc: "Pantau pesanan baru, pembayaran, dan galeri ulasan.",
+      },
+      {
+        id: "pesanan",
+        label: "Pesanan",
+        icon: ShoppingBag,
+        desc: "Kelola status pesanan dari simulasi harga dan cari riwayat.",
+      },
+      {
+        id: "pembayaran",
+        label: "Pembayaran QRIS",
+        icon: CreditCard,
+        desc: "Verifikasi bukti pembayaran QRIS SeaBank dan unggah hasil PDF Turnitin.",
+      },
     ],
   },
   {
     label: "Katalog & Harga",
     items: [
-      { id: "layanan", label: "Layanan", icon: Briefcase, desc: "Tambah atau kelola daftar layanan Umum, Khusus, dan PKL." },
-      { id: "tarif", label: "Tarif", icon: DollarSign, desc: "Atur tarif per lembar atau per slide untuk kelompok Soshum dan Saintek." },
-      { id: "paket", label: "Paket & Benefit", icon: Package, desc: "Kelola cakupan paket tetap, harga per kelompok, dan daftar benefit." },
-      { id: "fakultas", label: "Fakultas", icon: GraduationCap, desc: "Kelola daftar fakultas dan penempatannya ke kelompok Soshum atau Saintek." },
+      {
+        id: "layanan",
+        label: "Layanan",
+        icon: Briefcase,
+        desc: "Tambah atau kelola daftar layanan Umum, Khusus, dan PKL.",
+      },
+      {
+        id: "kategori",
+        label: "Kategori",
+        icon: Briefcase,
+        desc: "Kelola pengelompokan layanan.",
+      },
+      {
+        id: "tarif",
+        label: "Tarif",
+        icon: DollarSign,
+        desc: "Atur tarif per lembar atau per slide untuk kelompok Soshum dan Saintek.",
+      },
+      {
+        id: "paket",
+        label: "Paket & Benefit",
+        icon: Package,
+        desc: "Kelola cakupan paket tetap, harga per kelompok, dan daftar benefit.",
+      },
+      {
+        id: "fakultas",
+        label: "Fakultas",
+        icon: GraduationCap,
+        desc: "Kelola daftar fakultas dan penempatannya ke kelompok Soshum atau Saintek.",
+      },
     ],
   },
   {
     label: "Konten & Sistem",
     items: [
-      { id: "ulasan", label: "Ulasan & Portofolio", icon: MessageSquare, desc: "Moderasi ulasan pelanggan dan kelola portofolio karya." },
-      { id: "pengaturan", label: "Pengaturan", icon: Settings, desc: "Ubah nomor WhatsApp admin, gambar QRIS, tautan sosial, dan halaman legal." },
+      {
+        id: "ulasan",
+        label: "Ulasan (galeri)",
+        icon: MessageSquare,
+        desc: "Unggah foto, isi label, serta atur urutan dan tampilnya.",
+      },
+      {
+        id: "faq",
+        label: "FAQ",
+        icon: MessageSquare,
+        desc: "Kelola pertanyaan, jawaban, tombol, dan urutan.",
+      },
+      {
+        id: "pengaturan",
+        label: "Pengaturan",
+        icon: Settings,
+        desc: "Ubah nomor WhatsApp admin, gambar QRIS, tautan sosial, dan halaman legal.",
+      },
     ],
   },
 ];
 
 const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-export default function AdminDashboardClient({ adminUser, data }) {
+export default function AdminDashboardClient({
+  adminUser,
+  data,
+  initialTab = "ringkasan",
+}) {
   const router = useRouter();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState("ringkasan");
+  const activeTab = initialTab;
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const drawerButtonRef = useRef(null);
+  const drawerRef = useRef(null);
 
-  const activeMeta = ALL_ITEMS.find((item) => item.id === activeTab) || ALL_ITEMS[0];
+  const activeMeta =
+    ALL_ITEMS.find((item) => item.id === activeTab) || ALL_ITEMS[0];
 
   useEffect(() => {
     if (!isDrawerOpen) return;
+    const focusable = () =>
+      [
+        ...drawerRef.current.querySelectorAll(
+          "button, a[href], input, select, textarea",
+        ),
+      ].filter((element) => !element.disabled);
+    focusable()[0]?.focus();
     const onKeyDown = (e) => {
+      if (e.key === "Tab") {
+        const elements = focusable();
+        const first = elements[0];
+        const last = elements[elements.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        }
+        if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
       if (e.key === "Escape") {
         setIsDrawerOpen(false);
         drawerButtonRef.current?.focus();
@@ -86,6 +170,9 @@ export default function AdminDashboardClient({ adminUser, data }) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
+    if (form.dataset.busy) return;
+    form.dataset.busy = "true";
+    form.inert = true;
     try {
       const res = await actionFn(formData);
       if (res && (res.ok === false || res.success === false)) {
@@ -95,7 +182,10 @@ export default function AdminDashboardClient({ adminUser, data }) {
       showToast(successMsg, "success");
       router.refresh();
     } catch (error) {
-      showToast(error?.message || "Terjadi kesalahan pada server.", "error");
+      showToast("Aksi belum berhasil. Periksa koneksi dan coba lagi.", "error");
+    } finally {
+      delete form.dataset.busy;
+      form.inert = false;
     }
   };
 
@@ -104,7 +194,9 @@ export default function AdminDashboardClient({ adminUser, data }) {
       <div className="space-y-5">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
-            <div className="px-3 text-xs font-semibold text-[#526277]">{group.label}</div>
+            <div className="px-3 text-xs font-semibold text-[#526277]">
+              {group.label}
+            </div>
             <div className="mt-1.5 space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
@@ -115,7 +207,7 @@ export default function AdminDashboardClient({ adminUser, data }) {
                     type="button"
                     aria-current={isActive ? "page" : undefined}
                     onClick={() => {
-                      setActiveTab(item.id);
+                      router.push(`/admin/dashboard?tab=${item.id}`);
                       onSelect?.();
                     }}
                     className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm transition-colors ${
@@ -149,7 +241,9 @@ export default function AdminDashboardClient({ adminUser, data }) {
   return (
     <div className="min-h-screen bg-[#F7F8FA] text-[#172B40]">
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#DCE4EB] bg-white px-4 py-3 lg:hidden">
-        <div className="text-base font-bold text-[#16324F]">Admin Studio Tugasmu</div>
+        <div className="text-base font-bold text-[#16324F]">
+          Admin Studio Tugasmu
+        </div>
         <button
           ref={drawerButtonRef}
           type="button"
@@ -171,7 +265,13 @@ export default function AdminDashboardClient({ adminUser, data }) {
             onClick={() => setIsDrawerOpen(false)}
             className="fixed inset-0 bg-[#172B40]/50"
           />
-          <aside className="relative z-10 flex h-full w-72 flex-col bg-white p-4 shadow-xl">
+          <aside
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu admin"
+            className="relative z-10 flex h-full max-w-[90vw] w-72 flex-col overflow-y-auto bg-white p-4 shadow-xl"
+          >
             <div className="mb-4 flex items-center justify-between border-b border-[#DCE4EB] pb-3">
               <span className="font-bold text-[#16324F]">Menu Admin</span>
               <button
@@ -188,30 +288,51 @@ export default function AdminDashboardClient({ adminUser, data }) {
         </div>
       )}
 
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6">
+      <div
+        inert={isDrawerOpen}
+        className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6"
+      >
         <aside className="hidden w-64 shrink-0 self-start rounded-2xl border border-[#DCE4EB] bg-white p-4 lg:sticky lg:top-6 lg:flex lg:flex-col">
           <div className="mb-5 border-b border-[#DCE4EB] pb-4">
-            <div className="text-lg font-bold text-[#16324F]">Dashboard Admin</div>
-            <p className="text-xs text-[#526277]">Masuk sebagai {adminUser.username}</p>
+            <div className="text-lg font-bold text-[#16324F]">
+              Dashboard Admin
+            </div>
+            <p className="text-xs text-[#526277]">
+              Masuk sebagai {adminUser.username}
+            </p>
           </div>
           {renderSidebarLinks()}
         </aside>
 
         <main className="min-w-0 flex-1 space-y-6">
           <div className="rounded-2xl border border-[#DCE4EB] bg-white px-5 py-4">
-            <h1 className="text-xl font-bold text-[#16324F] sm:text-2xl">{activeMeta.label}</h1>
+            <h1 className="text-xl font-bold text-[#16324F] sm:text-2xl">
+              {activeMeta.label}
+            </h1>
             <p className="mt-1 text-sm text-[#526277]">{activeMeta.desc}</p>
           </div>
 
           {activeTab === "ringkasan" && <RingkasanPanel data={data} />}
           {activeTab === "pesanan" && (
-            <PesananPanel pesanan={data.pesanan} runAction={runAction} />
+            <PesananPanel
+              pesanan={data.pesanan}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "pembayaran" && (
-            <PembayaranPanel pembayaran={data.pembayaran} runAction={runAction} />
+            <PembayaranPanel
+              pembayaran={data.pembayaran}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "layanan" && (
-            <LayananPanel layanan={data.layanan} runAction={runAction} />
+            <LayananPanel
+              layanan={data.layanan}
+              kategori={data.kategori}
+              runAction={runAction}
+            />
           )}
           {activeTab === "tarif" && (
             <TarifPanel
@@ -226,15 +347,20 @@ export default function AdminDashboardClient({ adminUser, data }) {
           {activeTab === "fakultas" && (
             <FakultasPanel fakultas={data.fakultas} runAction={runAction} />
           )}
+          {activeTab === "kategori" && (
+            <KategoriPanel kategori={data.kategori} runAction={runAction} />
+          )}
           {activeTab === "ulasan" && (
-            <UlasanPortfolioPanel
-              ulasan={data.ulasan}
-              portfolio={data.portfolio}
-              runAction={runAction}
-            />
+            <GalleryPanel galeri={data.galeri} runAction={runAction} />
+          )}
+          {activeTab === "faq" && (
+            <FaqPanel faq={data.faq} runAction={runAction} />
           )}
           {activeTab === "pengaturan" && (
-            <PengaturanPanel pengaturan={data.pengaturan} runAction={runAction} />
+            <PengaturanPanel
+              pengaturan={data.pengaturan}
+              runAction={runAction}
+            />
           )}
         </main>
       </div>

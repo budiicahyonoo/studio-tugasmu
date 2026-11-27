@@ -1,15 +1,15 @@
-# PRD — Tugasmu19
+# PRD — Studio Tugasmu
 
 Nov 26, 2026 · @Budi Cahono
 
-Tugasmu19 adalah situs layanan joki tugas untuk siswa dan mahasiswa yang menampilkan harga transparan lewat simulasi otomatis, lalu mengarahkan pelanggan ke WhatsApp atau pembayaran QRIS.
+Studio Tugasmu adalah situs layanan joki tugas untuk siswa dan mahasiswa yang menampilkan harga transparan lewat simulasi otomatis, lalu mengarahkan pelanggan ke WhatsApp atau pembayaran QRIS.
 
 | Parameter | Data Proyek |
 | --- | --- |
-| **Produk** | Tugasmu19 (pengembangan dari Studio Tugasmu) |
+| **Produk** | Studio Tugasmu (pengembangan dari situs yang sudah ada) |
 | **Versi PRD** | v0.1 |
 | **Status** | Draft, menunggu review pemilik |
-| **Pemilik Produk** | Kamu (admin Tugasmu19) |
+| **Pemilik Produk** | Kamu (admin Studio Tugasmu) |
 | **Basis kode** | Next.js, Prisma, PostgreSQL (Neon), Cloudinary |
 | **Target Tanggal Rilis** | Belum ditentukan |
 
@@ -31,50 +31,52 @@ Tugasmu19 adalah situs layanan joki tugas untuk siswa dan mahasiswa yang menampi
 | **Lebar Kontainer Utama** | Standard (1024px) untuk situs publik, Wide (1280px) untuk dashboard admin | Form simulasi dan hasil harga perlu muat dalam satu kolom yang mudah dibaca. |
 | **Target Perangkat Utama** | Mobile first, lalu desktop | Siswa dan mahasiswa mayoritas membuka dari HP; minimum lebar 320 px. |
 | **Dukungan Dark Mode** | Tidak (hanya Light Mode) | Belum ada kebutuhan bisnis. |
-| **Desain Token Wajib** | Font Plus Jakarta Sans, Tailwind CSS 4, target sentuh minimum 44 px, notifikasi lewat toast (tanpa `alert()`) | Mengikuti implementasi yang sudah ada dan aksesibilitas dasar (skip link, label form, focus indicator, reduced motion). |
+| **Desain Token Wajib** | Font Plus Jakarta Sans, Tailwind CSS 4, target sentuh minimum 44 px, notifikasi lewat toast (tanpa `alert()`) | Mengikuti implementasi yang sudah ada dan aksesibilitas dasar (skip link, label form, focus indicator, reduced motion). Teks antarmuka mengikuti skill Anti-Slop di VS Code: spesifik dan tidak generik. |
 
 ## 3. Matriks Pengguna & Hak Akses (RBAC)
 
 | Peran (Role) | Deskripsi | Akses Route Frontend | Hak Akses Data Backend |
 | --- | --- | --- | --- |
-| **ADMIN** | Pemilik dan pengelola Tugasmu19 | `/admin/dashboard/*` (layanan, tarif, paket, benefit, pesanan, ulasan, portofolio, pengaturan) | Full CRUD seluruh entitas, ubah nomor WhatsApp dan syarat ketentuan |
-| **PELANGGAN** | Siswa atau mahasiswa yang melakukan simulasi atau cek Turnitin (tanpa akun pada tahap awal) | `/`, `/simulasi`, `/turnitin`, `/layanan`, `/portofolio` | Membuat simulasi, mengirim pesanan, mengunggah dokumen Turnitin, mengirim ulasan (status PENDING) |
-| **GUEST** | Pengunjung publik | `/`, `/layanan`, `/portofolio`, `/privacy`, `/terms` | Read-only katalog, tarif, paket, benefit, dan ulasan APPROVED |
+| **ADMIN** | Pemilik dan pengelola Studio Tugasmu | `/admin/dashboard/*` (layanan, tarif, paket, benefit, fakultas, pesanan, galeri ulasan, FAQ, pengaturan) | Full CRUD seluruh entitas, ubah nomor WhatsApp, QRIS, dan syarat ketentuan |
+| **PELANGGAN** | Siswa atau mahasiswa yang melakukan simulasi atau cek Turnitin (tanpa akun pada tahap awal) | `/`, `/simulasi`, `/layanan`, `/turnitin`, `/ulasan`, `/faq` | Membuat simulasi, mengirim pesanan, mengunggah dokumen dan bukti bayar Turnitin, melacak pesanan dengan kode pesanan |
+| **GUEST** | Pengunjung publik | `/`, `/layanan`, `/ulasan`, `/faq`, `/privacy`, `/terms` | Read-only katalog, tarif, paket, benefit, galeri ulasan, dan FAQ |
 
 ## 4. Ruang Lingkup (Scope Boundary)
 
 ### In-Scope (Wajib Dikerjakan)
 
-1. **Katalog layanan**: kategori Umum (artikel, paper, makalah, PPT), Khusus (skripsi, thesis, projek), dan PKL (praktikum, laporan PKL, observasi).
-2. **Tarif per kelompok fakultas**: fakultas dibagi dua kelompok, Soshum Rp3.000 dan Saintek Rp4.000 per lembar (contoh artikel), dan harga paket juga berbeda per kelompok.
-3. **Simulasi harga**: form (nama, fakultas, layanan, judul, deskripsi), deskripsi dirapikan AI, hitung otomatis, hasil berupa harga, estimasi selesai, dan benefit.
-4. **Pengiriman ke WhatsApp**: simulasi yang disetujui pelanggan tersimpan sebagai pesanan dan terkirim otomatis ke WhatsApp admin.
-5. **Admin CRUD**: kategori, fakultas, layanan, tarif, paket, cakupan paket, benefit, estimasi selesai, dan pengaturan umum (nomor WhatsApp, syarat dan ketentuan).
-6. **Cek Turnitin** dengan pembayaran QRIS (tahap kedua).
-7. **Fondasi keamanan**: login admin dengan sesi tervalidasi server, validasi input server, kredensial hanya dari environment.
+1. **Halaman publik**: Beranda, Simulasi, Layanan (dropdown Layanan dan Tarif), Turnitin, Ulasan, dan FAQ, sesuai 4.1.
+2. **Katalog layanan**: kategori Umum (artikel, paper, makalah, PPT), Khusus (skripsi, thesis, projek), dan PKL (praktikum, laporan PKL, observasi). Halaman Layanan menampilkan dua kartu, Siswa dan Mahasiswa.
+3. **Tarif per kelompok fakultas**: fakultas dibagi dua kelompok, Soshum Rp3.000 dan Saintek Rp4.000 per lembar (contoh artikel), dan harga paket juga berbeda per kelompok.
+4. **Simulasi harga**: tiga bagian (data pengguna, data layanan, detail), deskripsi dirapikan AI, hitung otomatis, hasil berupa harga, estimasi selesai, dan benefit.
+5. **Pengiriman ke WhatsApp**: simulasi yang disetujui pelanggan tersimpan sebagai pesanan dan terkirim otomatis ke WhatsApp admin.
+6. **Admin CRUD**: kategori, fakultas, layanan, tarif, paket, cakupan paket, benefit, estimasi selesai, galeri ulasan, FAQ, dan pengaturan umum (nomor WhatsApp, jumlah klien dibantu, QRIS, syarat dan ketentuan).
+7. **Cek Turnitin** dengan pembayaran QRIS SeaBank dan pelacakan pesanan (tahap kedua).
+8. **Fondasi keamanan**: login admin dengan sesi tervalidasi server, validasi input server, kredensial hanya dari environment.
 
 ### Out-of-Scope (Fase Berikutnya / Tidak Dikerjakan Sekarang)
 
 - Akun pelanggan dan riwayat pesanan di sisi pelanggan.
-- Chat atau pelacakan progres pengerjaan di dalam situs.
+- Chat atau pelacakan progres pengerjaan tugas di dalam situs (kecuali pelacakan status pesanan Turnitin).
 - Aplikasi mobile native (iOS dan Android).
+- Halaman Portofolio dan form ulasan teks dari pengunjung, digantikan galeri ulasan berlabel.
 - Pembayaran kartu kredit atau transfer bank otomatis (hanya QRIS SeaBank untuk Turnitin, diverifikasi manual oleh admin; belum ada konfirmasi otomatis).
 
 ### 4.1 Struktur Navigasi & Modul
 
-**Navbar publik** (kiri ke kanan): Beranda, Simulasi Harga (tombol utama), Layanan (dropdown Umum, Khusus, PKL), Cek Turnitin, Portofolio, Ulasan, dan tombol WhatsApp. Menu Cek Turnitin tampil sebagai "segera hadir" sampai tahap kedua. Footer berisi Privacy Policy, Terms of Service, Instagram, dan email.
+**Navbar publik** (kiri ke kanan): logo Studio Tugasmu, Beranda, Simulasi, Layanan (dropdown: Layanan dan Tarif), Turnitin, Ulasan, FAQ, dan tombol WhatsApp di sisi kanan. Menu Turnitin tampil "segera hadir" sampai tahap kedua. Menu Portofolio dihapus karena fungsinya digantikan halaman Ulasan. Footer berisi Privacy Policy, Terms of Service, Instagram, dan email.
 
 | Modul publik | Isi | Tahap |
 | --- | --- | --- |
-| Beranda | Hero, keunggulan, tombol simulasi, ringkasan layanan, ulasan | 1 |
-| Simulasi Harga | Form, hitung otomatis, hasil dengan benefit, kirim ke WhatsApp | 1 |
-| Layanan | Katalog per kategori (Umum, Khusus, PKL), paket, benefit, estimasi selesai | 1 |
-| Portofolio | Daftar karya | 1 |
-| Ulasan | Daftar ulasan APPROVED dan form kirim ulasan | 1 |
+| Beranda | Landing page: penjelasan Studio Tugasmu, jasa yang ditawarkan, keunggulan, jumlah klien yang sudah dibantu (angka dari admin), cara memesan, dan 3 sampai 4 pertanyaan umum dengan tautan ke FAQ | 1 |
+| Simulasi | Tiga bagian: data pengguna, data layanan, detail. Lalu hitung otomatis, hasil dengan benefit, dan kirim ke WhatsApp | 1 |
+| Layanan | Dropdown berisi dua halaman. **Layanan**: dua kartu, Siswa dan Mahasiswa, tiap kartu menjelaskan layanan untuk jenjang itu dan mengarahkan ke Simulasi. **Tarif**: daftar tarif per kelompok fakultas, paket, benefit, dan estimasi selesai | 1 |
+| Ulasan | Galeri foto berlabel (landscape dan portrait), bisa difilter per label | 1 |
+| FAQ | Daftar pertanyaan dengan jawaban; tiap jawaban bisa punya tombol ke halaman tujuan | 1 |
 | Privacy Policy dan Terms of Service | Halaman legal | 1 |
-| Cek Turnitin | Unggah dokumen, bayar QRIS, unduh hasil PDF | 2 |
+| Turnitin | Alur 4 langkah, harga paket, dan Lacak Pesanan (lihat FR-008) | 2 |
 
-**Menu sidebar admin**: Ringkasan, Pesanan, Layanan, Tarif, Paket & Benefit, Fakultas, Ulasan, Portofolio, Pengaturan, Pembayaran (tahap 2), dan Keluar.
+**Menu sidebar admin**: Ringkasan, Pesanan, Layanan, Tarif, Paket & Benefit, Fakultas, Ulasan (galeri), FAQ, Pengaturan, Pembayaran (tahap 2), dan Keluar.
 
 | Modul admin | Fungsi | Tahap |
 | --- | --- | --- |
@@ -84,8 +86,9 @@ Tugasmu19 adalah situs layanan joki tugas untuk siswa dan mahasiswa yang menampi
 | Tarif | CRUD tarif per layanan per kelompok, dengan riwayat perubahan | 1 |
 | Paket & Benefit | CRUD paket, cakupan, harga per kelompok, dan benefit (bisa diurutkan) | 1 |
 | Fakultas | CRUD fakultas dan penempatan ke Saintek atau Soshum | 1 |
-| Ulasan dan Portofolio | Moderasi ulasan, unggah dan hapus karya | 1 |
-| Pengaturan | Nomor WhatsApp, syarat dan ketentuan, kebijakan privasi, tautan sosial | 1 |
+| Ulasan (galeri) | Unggah dan hapus foto, isi label (misalnya matematika-skripsi), atur urutan dan tampil | 1 |
+| FAQ | CRUD pertanyaan, jawaban, tombol (label dan tujuan), dan urutan | 1 |
+| Pengaturan | Nomor WhatsApp, jumlah klien dibantu, gambar QRIS, nama rekening, syarat dan ketentuan, kebijakan privasi, tautan sosial | 1 |
 | Pembayaran | Daftar pembayaran, lihat bukti bayar, tombol verifikasi | 2 |
 
 ## 5. Spesifikasi Fitur & Acceptance Criteria (BDD)
@@ -183,13 +186,62 @@ Fakultas dibagi dua kelompok tarif: **Saintek** (contoh: Teknik, Kedokteran) dan
   - *When* waktu habis.
   - *Then* pesanan berstatus KEDALUWARSA dan tidak ada dokumen yang diproses.
 
-### FR-007: Ulasan dan Portofolio
+### FR-007: Galeri Ulasan Berlabel
 
-- **Prioritas**: Could Have (P2), sudah ada di sistem saat ini
+- **Prioritas**: Should Have (P1). Menggantikan Portofolio dan ulasan teks.
 - **Kriteria Pengujian**:
-  - *Given* pengunjung mengirim ulasan.
-  - *When* ulasan disimpan.
-  - *Then* status PENDING dan baru tampil publik setelah admin menyetujui.
+  - *Given* admin mengunggah foto dan mengisi label, misalnya "matematika-skripsi" atau "pjok-paper".
+  - *When* admin menyimpan.
+  - *Then* foto tampil di halaman Ulasan dengan labelnya, dan lebar serta tinggi foto tersimpan.
+  - *Given* galeri berisi foto landscape dan portrait.
+  - *When* halaman dibuka di HP maupun desktop.
+  - *Then* semua foto tampil utuh tanpa terpotong, dalam grid yang rapi, dan tata letak tidak bergeser saat foto selesai dimuat.
+  - *Given* pengunjung memilih satu label pada filter.
+  - *When* pilihan berubah.
+  - *Then* hanya foto berlabel itu yang tampil.
+  - *Given* admin mengunggah file yang bukan gambar atau lebih dari 4 MB.
+  - *When* unggahan dikirim.
+  - *Then* ditolak dengan pesan yang jelas.
+  - *Catatan operasional*: foto yang memuat nama atau nomor pelanggan disensor sebelum diunggah.
+
+### FR-008: Halaman Turnitin dan Lacak Pesanan
+
+- **Prioritas**: Should Have (P1), tahap kedua
+- **Referensi**: alur mengikuti [mikrodigital.web.id](https://mikrodigital.web.id/), tampilan memakai gaya Studio Tugasmu sendiri (bukan meniru situs itu).
+- **Kriteria Pengujian**:
+  - *Given* pelanggan membuka halaman Turnitin.
+  - *When* halaman selesai dimuat.
+  - *Then* tampil empat langkah bernomor: pilih paket pengecekan, unggah dokumen PDF, isi nama dan nomor WhatsApp, lalu bayar QRIS dan unggah bukti. Daftar paket menampilkan harga dan estimasi selesai.
+  - *Given* pelanggan mengunggah file di luar format atau ukuran yang diizinkan.
+  - *When* unggahan dikirim.
+  - *Then* ditolak dengan pesan yang jelas. Format, batas ukuran, dan estimasi diambil dari satu sumber data (Pengaturan) sehingga form, FAQ, dan halaman selalu seragam.
+  - *Given* pelanggan memasukkan kode pesanan pada Lacak Pesanan.
+  - *When* pelanggan mengirim.
+  - *Then* tampil status pesanan, dan tombol unduh PDF muncul bila hasil sudah diunggah admin.
+  - *Catatan teks*: klaim di halaman hanya yang bisa dipenuhi. Tulis "diverifikasi admin", bukan "otomatis".
+
+### FR-009: FAQ
+
+- **Prioritas**: Should Have (P1)
+- **Kriteria Pengujian**:
+  - *Given* pengunjung membuka FAQ.
+  - *When* pengunjung memilih satu pertanyaan.
+  - *Then* jawabannya terbuka. Bila jawaban punya tombol di bagian akhir (misalnya "Mulai Simulasi" pada pertanyaan cara memesan), tombol mengarah ke tujuan yang diatur admin.
+  - *Given* admin menambah, mengubah, mengurutkan, atau menghapus pertanyaan, jawaban, serta label dan tujuan tombol.
+  - *When* admin menyimpan.
+  - *Then* halaman FAQ publik mengikuti perubahan itu tanpa mengubah kode.
+
+### FR-010: Beranda
+
+- **Prioritas**: Must Have (P0)
+- **Kriteria Pengujian**:
+  - *Given* pengunjung membuka Beranda.
+  - *When* halaman dimuat.
+  - *Then* tampil berurutan: penjelasan Studio Tugasmu, jasa yang ditawarkan, keunggulan, jumlah klien yang sudah dibantu, cara memesan, dan 3 sampai 4 pertanyaan umum dengan tautan ke FAQ.
+  - *Given* admin mengubah jumlah klien dibantu di Pengaturan.
+  - *When* admin menyimpan.
+  - *Then* Beranda menampilkan angka baru. Angka hanya berasal dari admin, tidak ditulis di kode.
+  - *Catatan teks*: seluruh teks mengikuti skill Anti-Slop di VS Code: spesifik, tanpa klaim yang tidak bisa dibuktikan.
 
 ## 6. Kebijakan & Rancangan Database
 
@@ -216,8 +268,8 @@ Fakultas dibagi dua kelompok tarif: **Saintek** (contoh: Teknik, Kedokteran) dan
 | **RiwayatHarga** | Catatan perubahan tarif atau harga paket | entitas, nilaiLama, nilaiBaru, diubahOleh, waktu |
 | **Pesanan** | Hasil simulasi yang disetujui | nama, fakultasId, layananId, paketId, judul, deskripsiAsli, deskripsiAI, jumlah, total, status |
 | **Pembayaran** | Transaksi QRIS (tahap Turnitin) | pesananId, nominal, buktiPembayaranUrl, status, diverifikasiOleh, dibayarPada |
-| **Pengaturan** | Konfigurasi umum | nomorWhatsApp, qrisImageUrl, namaRekening, syaratKetentuan, kebijakanPrivasi |
-| **Ulasan, Portofolio, Admin** | Sudah ada; Admin diganti menjadi tabel dengan hash password | lihat skema saat ini |
+| **Pengaturan** | Konfigurasi umum | nomorWhatsApp, qrisImageUrl, namaRekening, syaratKetentuan, kebijakanPrivasi, jumlahKlienDibantu |
+| **GaleriUlasan, Faq, Admin** | Galeri menggantikan Ulasan teks dan Portofolio; Admin diganti menjadi tabel dengan hash password | GaleriUlasan: imageUrl, label, lebar, tinggi, urutan, tampil. Faq: pertanyaan, jawaban, labelTombol, tujuanTombol, urutan, tampil |
 
 ### 6.3 Prisma Schema Preview
 
@@ -300,6 +352,33 @@ model Pesanan {
 }
 ```
 
+Model tambahan untuk galeri ulasan dan FAQ. Model Ulasan (status PENDING dan APPROVED) dan Portofolio yang lama dihapus setelah fotonya dipindahkan ke GaleriUlasan.
+
+```prisma
+model GaleriUlasan {
+  id        String   @id @default(cuid())
+  imageUrl  String   // Cloudinary
+  label     String   // contoh: "matematika-skripsi", "pjok-paper"
+  lebar     Int      // piksel, untuk menentukan landscape atau portrait
+  tinggi    Int
+  urutan    Int      @default(0)
+  tampil    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([label])
+}
+
+model Faq {
+  id           String  @id @default(cuid())
+  pertanyaan   String
+  jawaban      String
+  labelTombol  String? // contoh: "Mulai Simulasi"
+  tujuanTombol String? // halaman internal atau tautan WhatsApp
+  urutan       Int     @default(0)
+  tampil       Boolean @default(true)
+}
+```
+
 ### 6.4 Seed Awal Fakultas dan Kelompok Tarif
 
 Pengelompokan umum berikut dipakai sebagai data awal. Tiap kampus bisa berbeda, jadi admin dapat menambah fakultas dan memindahkan kelompoknya kapan saja.
@@ -318,7 +397,7 @@ Sumber pengelompokan umum: [Gramedia](https://www.gramedia.com/best-seller/perbe
 | Layanan | Provider / Tools | Fungsi | Status |
 | --- | --- | --- | --- |
 | **Database** | PostgreSQL (Neon) | Menyimpan seluruh data | Skema Prisma sudah ada, database dipindah ke Neon |
-| **Penyimpanan gambar** | Cloudinary | Gambar portofolio | Sudah ada |
+| **Penyimpanan gambar** | Cloudinary | Foto galeri ulasan dan bukti pembayaran | Sudah ada |
 | **Konsultasi** | WhatsApp, Calendly | Kirim pesanan dan jadwal konsultasi | Sudah ada |
 | **PDF** | jsPDF | Invoice estimasi | Sudah ada |
 | **AI** | Groq (utama) dengan OpenRouter model gratis (cadangan) | Hanya merapikan format deskripsi tugas | Baru. Free tier tanpa jaminan uptime, jadi wajib ada fallback ke deskripsi asli |
@@ -368,8 +447,8 @@ Tahap pertama adalah simulasi harga dengan admin CRUD. Cek Turnitin dan QRIS men
 | --- | --- | --- | --- |
 | **M0: Perbaikan fondasi** | Siapkan koneksi Neon, rotasi password database lama, hapus kredensial dari source, login admin dengan sesi nyata, validasi server | Hari ke-3 | Login dengan sesi palsu ditolak; `npm test` dan `npm run lint` lulus |
 | **M1: Database dan seed** | Skema Fakultas, Kategori, Layanan, Tarif, Paket, Benefit, Pesanan, Pengaturan, serta data awal yang menggantikan tarif lama | Hari ke-5 | `npx prisma migrate dev` dan `npx prisma validate` berhasil |
-| **M2: Admin CRUD** | Dashboard untuk fakultas, layanan, tarif, paket, benefit, pengaturan, dan pesanan | Hari ke-9 | Semua skenario FR-005 lolos |
-| **M3: Simulasi publik** | Form simulasi, hitung otomatis, perapian AI, hasil dengan benefit, kirim ke WhatsApp | Hari ke-13 | Skenario FR-001 sampai FR-004 lolos; `npm run build` lulus |
+| **M2: Admin CRUD** | Dashboard untuk fakultas, layanan, tarif, paket, benefit, galeri ulasan, FAQ, pengaturan, dan pesanan | Hari ke-9 | Semua skenario FR-005 lolos |
+| **M3: Simulasi publik** | Navbar dan halaman publik (Beranda, Layanan, Ulasan, FAQ), form simulasi, hitung otomatis, perapian AI, hasil dengan benefit, kirim ke WhatsApp | Hari ke-13 | Skenario FR-001 sampai FR-004 lolos; `npm run build` lulus |
 | **M4: Cek Turnitin dan QRIS** | Unggah dokumen, tampilan QRIS SeaBank, unggah bukti bayar, verifikasi manual admin, hasil cek PDF | Menyusul setelah M3 | Skenario FR-006 lolos dengan pembayaran uji dan verifikasi admin |
 | **M5: QA dan produksi** | Halaman Privacy Policy dan Terms of Service, tautan sosial valid, uji perangkat mobile, deploy | Hari ke-16 setelah M3 | Smoke test lulus dan UAT disetujui |
 
@@ -413,11 +492,25 @@ Tahap pertama adalah simulasi harga dengan admin CRUD. Cek Turnitin dan QRIS men
 | "1-24 jam" | Dikonfirmasi 1x24 jam | Bagian 5 |
 | Payment gateway | Diganti: SeaBank dengan QRIS buatan sendiri. Pembayaran diverifikasi manual oleh admin | Bagian 7.1 |
 
+**Keputusan 27 November 2026:**
+
+| Keputusan | Jawaban | Dipakai di |
+| --- | --- | --- |
+| Nama brand | Studio Tugasmu | Seluruh dokumen |
+| Menu navbar | Beranda, Simulasi, Layanan (dropdown Layanan dan Tarif), Turnitin, Ulasan, FAQ | 4.1 |
+| Portofolio | Dihapus, fungsinya digantikan Ulasan | 4.1, FR-007 |
+| Ulasan | Galeri foto berlabel (landscape dan portrait), label diisi admin. Form ulasan teks dari pengunjung dihapus | FR-007, 6.3 |
+| Kartu halaman Layanan | Siswa dan Mahasiswa saja, tanpa kartu Umum | 4.1 |
+| Panduan teks | Skill Anti-Slop yang terpasang di VS Code | Bagian 2, FR-010 |
+| Referensi halaman Turnitin | Alur mengikuti mikrodigital.web.id, tampilan memakai gaya Studio Tugasmu sendiri | FR-008 |
+
 **Masih terbuka:**
 
 - [ ] Jalur akses Turnitin yang sah dan apakah lisensinya mengizinkan layanan cek untuk pelanggan umum (tahap 2 bergantung pada ini).
 - [ ] Cek syarat akun SeaBank dan pembuatan QRIS sendiri (jenis QRIS, biaya, dan apakah kategori usaha diizinkan).
 - [ ] Verifikasi batas pemakaian terbaru Groq dan OpenRouter saat M3 dikerjakan.
+- [ ] Tarif layanan Siswa: sementara mengikuti kelompok Soshum. Konfirmasi, atau tentukan tarif dan daftar layanan khusus Siswa.
+- [ ] Paket cek Turnitin (nama paket, harga, batas halaman, format dan batas ukuran file) belum ditentukan.
 
 ### 11.2 Log Perubahan & Change Request (CR)
 

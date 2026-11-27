@@ -1,0 +1,15 @@
+{
+  "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "checkJs": true,
+    "maxNodeModuleJsDepth": 0
+  },
+  "include": [
+    "src/lib/calculateEstimate.js",
+    "src/lib/quote.js",
+    "src/lib/validation.js",
+    "src/lib/sessionToken.js",
+    "src/lib/rateLimit.js"
+  ],
+  "exclude": ["node_modules", ".next", "**/*.test.js"]
+}

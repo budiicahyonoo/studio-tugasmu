@@ -12,7 +12,7 @@ describe("calculateEstimate", () => {
         tipeHitung: "PER_LEMBAR",
         hargaPerUnit: 3000,
         jumlah: 15,
-      })
+      }),
     ).toBe(45000);
 
     expect(
@@ -20,7 +20,7 @@ describe("calculateEstimate", () => {
         tipeHitung: "PER_LEMBAR",
         hargaPerUnit: 4000,
         jumlah: 15,
-      })
+      }),
     ).toBe(60000);
   });
 
@@ -30,7 +30,7 @@ describe("calculateEstimate", () => {
         tipeHitung: "PER_SLIDE",
         hargaPerUnit: 3000,
         jumlah: 20,
-      })
+      }),
     ).toBe(60000);
   });
 
@@ -39,14 +39,14 @@ describe("calculateEstimate", () => {
       calculateEstimate({
         tipeHitung: "PER_PAKET",
         paketHarga: 2000000,
-      })
+      }),
     ).toBe(2000000);
 
     expect(
       calculateEstimate({
         tipeHitung: "PER_PAKET",
         paketHarga: 5000000,
-      })
+      }),
     ).toBe(5000000);
   });
 
@@ -56,7 +56,7 @@ describe("calculateEstimate", () => {
         tipeHitung: "PER_LEMBAR",
         hargaPerUnit: 3000,
         jumlah: 0,
-      })
+      }),
     ).toThrow("Jumlah lembar minimal 1.");
 
     expect(() =>
@@ -64,13 +64,13 @@ describe("calculateEstimate", () => {
         tipeHitung: "PER_SLIDE",
         hargaPerUnit: 3000,
         jumlah: 0,
-      })
+      }),
     ).toThrow("Jumlah slide minimal 1.");
 
     expect(() =>
       calculateEstimate({
         tipeHitung: "TIDAK_DIKENAL",
-      })
+      }),
     ).toThrow("Tipe hitungan tidak dikenal");
   });
 

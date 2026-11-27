@@ -1,251 +1,252 @@
-"use server";
-
+﻿"use server";
 import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { v2 as cloudinary } from "cloudinary";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
-
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-const TURNITIN_DEFAULT_FEE = 15000;
-const ALLOWED_DOC_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
-const ALLOWED_PROOF_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-
-async function uploadBufferToCloudinary(file, folder) {
-  if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    throw new Error("Konfigurasi Cloudinary belum lengkap di environment.");
-  }
-  const buffer = Buffer.from(await file.arrayBuffer());
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: "auto" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-    stream.end(buffer);
+import { checkRateLimit } from "../lib/persistentRateLimit";
+import { publicError } from "../lib/validation";
+import { removeUpload, uploadFile } from "../lib/uploads";
+const codeSchema = z.string().regex(/^TRN-[A-F0-9]{40}$/);
+async function allowed(action, limit = 10) {
+  const h = await headers();
+  return (
+    await checkRateLimit(
+      `turnitin:${action}:${h.get("x-forwarded-for")?.split(",")[0] || "local"}`,
+      { limit, windowMs: 60000 },
+    )
+  ).allowed;
+}
+async function expireOrder(payment) {
+  if (
+    payment.status !== "MENUNGGU_PEMBAYARAN" ||
+    !payment.kedaluwarsaPada ||
+    payment.kedaluwarsaPada > new Date()
+  )
+    return false;
+  return prisma.$transaction(async (tx) => {
+    const changed = await tx.pembayaran.updateMany({
+      where: {
+        id: payment.id,
+        status: "MENUNGGU_PEMBAYARAN",
+        kedaluwarsaPada: { lte: new Date() },
+      },
+      data: { status: "KEDALUWARSA" },
+    });
+    if (changed.count)
+      await tx.pesanan.update({
+        where: { id: payment.pesananId },
+        data: { status: "KEDALUWARSA" },
+      });
+    return Boolean(changed.count);
   });
 }
-
-function generateTurnitinCode() {
-  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const randPart = randomBytes(2).toString("hex").toUpperCase();
-  return `TRN-${datePart}-${randPart}`;
-}
-
-export async function createTurnitinOrder(formData) {
-  const nama = String(formData.get("nama") || "").trim();
-  const fakultasId = String(formData.get("fakultasId") || "").trim();
-  const judul = String(formData.get("judul") || "").trim();
-  const file = formData.get("dokumenFile");
-
-  if (nama.length < 2 || !fakultasId || judul.length < 3) {
-    return { ok: false, error: "Lengkapi nama, fakultas, dan judul dokumen." };
-  }
-
-  if (!file || typeof file === "string" || file.size === 0) {
-    return { ok: false, error: "Pilih file dokumen (PDF atau DOCX) terlebih dahulu." };
-  }
-
-  if (file.size > 4 * 1024 * 1024) {
-    return { ok: false, error: "Ukuran dokumen maksimal 4 MB." };
-  }
-
-  if (file.type && !ALLOWED_DOC_TYPES.includes(file.type)) {
-    return { ok: false, error: "Format dokumen harus PDF, DOC, atau DOCX." };
-  }
-
+export async function createTurnitinOrder(form) {
+  if (!(await allowed("create", 5)))
+    return {
+      ok: false,
+      error: "Terlalu banyak permintaan. Tunggu satu menit.",
+    };
+  const parsed = z
+    .object({
+      nama: z.string().trim().min(2).max(100),
+      nomorWhatsApp: z.string().regex(/^62[0-9]{7,13}$/),
+      paketId: z.string().min(1).max(100),
+      requestId: z.string().uuid(),
+    })
+    .safeParse(Object.fromEntries(form));
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Isi nama, WhatsApp (628...), dan paket pengecekan.",
+    };
+  let upload;
   try {
-    let layanan = await prisma.layanan.findUnique({ where: { nama: "Cek Turnitin" } });
-    if (!layanan) {
-      layanan = await prisma.layanan.create({
-        data: {
-          nama: "Cek Turnitin",
-          kategori: "UMUM",
-          tipeHitung: "PER_PAKET",
-          estimasiSelesai: "1x24 jam",
-          deskripsi: "Pengecekan kemiripan dokumen Turnitin dan laporan PDF.",
-          aktif: true,
-        },
-      });
-    }
-
-    const upload = await uploadBufferToCloudinary(file, "turnitin_docs");
-    const kodePesanan = generateTurnitinCode();
-    const kedaluwarsaPada = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const pesanan = await prisma.pesanan.create({
+    const settings = await prisma.pengaturan.findUnique({
+      where: { id: "default" },
+    });
+    if (
+      !settings?.turnitinAktif ||
+      !settings.qrisImageUrl ||
+      !settings.namaRekening
+    )
+      return { ok: false, error: "Pemesanan Turnitin belum dibuka." };
+    const paket = await prisma.paket.findUnique({
+      where: { id: parsed.data.paketId },
+      include: { layanan: true },
+    });
+    if (
+      !paket ||
+      paket.layanan.nama !== "Cek Turnitin" ||
+      !paket.layanan.aktif ||
+      paket.kelompok !== "SOSHUM"
+    )
+      return { ok: false, error: "Paket pengecekan tidak tersedia." };
+    const existing = await prisma.pesanan.findUnique({
+      where: { requestId: parsed.data.requestId },
+      include: { pembayaran: true },
+    });
+    if (existing && !existing.deletedAt && existing.pembayaran)
+      return { ok: true, kodePesanan: existing.kodePesanan };
+    const faculty = await prisma.fakultas.findFirst({
+      where: { aktif: true, kelompok: "SOSHUM" },
+      orderBy: { urutan: "asc" },
+    });
+    if (!faculty)
+      return { ok: false, error: "Data layanan belum lengkap. Hubungi admin." };
+    const file = form.get("dokumenFile");
+    upload = await uploadFile(file, "studio_turnitin_docs", {
+      pdf: true,
+      private: true,
+      maxMb: settings.turnitinMaksMb,
+    });
+    const kodePesanan = `TRN-${randomBytes(20).toString("hex").toUpperCase()}`;
+    await prisma.pesanan.create({
       data: {
+        ...parsed.data,
         kodePesanan,
-        nama,
-        fakultasId,
-        layananId: layanan.id,
-        judul,
-        deskripsiAsli: `Cek Turnitin untuk dokumen: ${file.name}`,
-        total: TURNITIN_DEFAULT_FEE,
+        layananId: paket.layananId,
+        fakultasId: faculty.id,
+        judul: String(file.name).slice(0, 200),
+        deskripsiAsli: "Pengecekan dokumen PDF",
+        total: paket.harga,
+        ringkasan: {
+          paketNama: paket.nama,
+          estimasiSelesai: paket.layanan.estimasiSelesai,
+          qrisImageUrl: settings.qrisImageUrl,
+          namaRekening: settings.namaRekening,
+        },
         status: "MENUNGGU_PEMBAYARAN",
         pembayaran: {
           create: {
-            nominal: TURNITIN_DEFAULT_FEE,
-            dokumenUrl: upload.secure_url,
-            dokumenNama: file.name,
-            status: "MENUNGGU_PEMBAYARAN",
-            kedaluwarsaPada,
+            nominal: paket.harga,
+            dokumenNama: String(file.name).slice(0, 200),
+            dokumenPublicId: upload.public_id,
+            kedaluwarsaPada: new Date(
+              Date.now() + settings.turnitinBatasJam * 3600000,
+            ),
           },
         },
       },
-      include: { pembayaran: true },
     });
-
     revalidatePath("/admin/dashboard");
-
-    return {
-      ok: true,
-      kodePesanan: pesanan.kodePesanan,
-      nominal: TURNITIN_DEFAULT_FEE,
-      kedaluwarsaPada: kedaluwarsaPada.toISOString(),
-    };
+    return { ok: true, kodePesanan };
   } catch (error) {
-    console.error("Gagal membuat pesanan Turnitin:", error);
-    return { ok: false, error: error.message || "Gagal mengunggah dokumen Turnitin." };
+    if (upload)
+      await removeUpload(upload.public_id, { pdf: true, private: true }).catch(
+        () => {},
+      );
+    publicError("turnitin.create", error);
+    return {
+      ok: false,
+      error:
+        "Pesanan belum dibuat. Pastikan dokumen PDF sesuai batas ukuran dan coba lagi.",
+    };
   }
 }
-
-export async function submitTurnitinPaymentProof(formData) {
-  const kodePesanan = String(formData.get("kodePesanan") || "").trim().toUpperCase();
-  const file = formData.get("buktiFile");
-
-  if (!kodePesanan) {
-    return { ok: false, error: "Kode pesanan wajib diisi." };
-  }
-  if (!file || typeof file === "string" || file.size === 0) {
-    return { ok: false, error: "Unggah bukti pembayaran QRIS terlebih dahulu." };
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    return { ok: false, error: "Ukuran bukti pembayaran maksimal 4 MB." };
-  }
-  if (file.type && !ALLOWED_PROOF_TYPES.includes(file.type)) {
-    return { ok: false, error: "Bukti pembayaran harus berupa gambar (JPG/PNG/WEBP) atau PDF." };
-  }
-
+export async function submitTurnitinPaymentProof(form) {
+  if (!(await allowed("proof", 5)))
+    return {
+      ok: false,
+      error: "Tunggu satu menit sebelum mengirim bukti lagi.",
+    };
+  const parsed = codeSchema.safeParse(
+    String(form.get("kodePesanan") || "")
+      .trim()
+      .toUpperCase(),
+  );
+  if (!parsed.success) return { ok: false, error: "Kode pesanan tidak valid." };
+  let upload;
   try {
-    const pesanan = await prisma.pesanan.findUnique({
-      where: { kodePesanan },
+    const order = await prisma.pesanan.findUnique({
+      where: { kodePesanan: parsed.data },
       include: { pembayaran: true },
     });
-
-    if (!pesanan || !pesanan.pembayaran) {
-      return { ok: false, error: "Kode pesanan Turnitin tidak ditemukan." };
-    }
-
-    if (
-      pesanan.pembayaran.kedaluwarsaPada &&
-      pesanan.pembayaran.kedaluwarsaPada < new Date() &&
-      pesanan.pembayaran.status === "MENUNGGU_PEMBAYARAN"
-    ) {
-      await prisma.$transaction([
-        prisma.pembayaran.update({
-          where: { id: pesanan.pembayaran.id },
-          data: { status: "KEDALUWARSA" },
-        }),
-        prisma.pesanan.update({
-          where: { id: pesanan.id },
-          data: { status: "KEDALUWARSA" },
-        }),
-      ]);
-      return { ok: false, error: "Batas waktu pembayaran telah habis (KEDALUWARSA)." };
-    }
-
-    const upload = await uploadBufferToCloudinary(file, "turnitin_proofs");
-    await prisma.$transaction([
-      prisma.pembayaran.update({
-        where: { id: pesanan.pembayaran.id },
-        data: {
-          buktiPembayaranUrl: upload.secure_url,
-          status: "MENUNGGU_VERIFIKASI",
+    if (!order?.pembayaran || order.deletedAt || order.pembayaran.deletedAt)
+      return { ok: false, error: "Pesanan tidak ditemukan." };
+    if (await expireOrder(order.pembayaran))
+      return { ok: false, error: "Batas pembayaran sudah habis." };
+    if (order.pembayaran.status !== "MENUNGGU_PEMBAYARAN")
+      return { ok: false, error: "Bukti tidak dapat diubah pada status ini." };
+    upload = await uploadFile(form.get("buktiFile"), "studio_turnitin_proofs", {
+      private: true,
+    });
+    await prisma.$transaction(async (tx) => {
+      const changed = await tx.pembayaran.updateMany({
+        where: {
+          id: order.pembayaran.id,
+          deletedAt: null,
+          status: "MENUNGGU_PEMBAYARAN",
+          kedaluwarsaPada: { gt: new Date() },
         },
-      }),
-      prisma.pesanan.update({
-        where: { id: pesanan.id },
+        data: {
+          status: "MENUNGGU_VERIFIKASI",
+          buktiPublicId: upload.public_id,
+        },
+      });
+      if (!changed.count) throw new Error("Status sudah berubah.");
+      await tx.pesanan.update({
+        where: { id: order.id },
         data: { status: "MENUNGGU_VERIFIKASI" },
-      }),
-    ]);
-
-    const pengaturan = await prisma.pengaturan.findUnique({ where: { id: "default" } });
+      });
+    });
+    const settings = await prisma.pengaturan.findUnique({
+      where: { id: "default" },
+    });
     revalidatePath("/admin/dashboard");
-
     return {
       ok: true,
-      kodePesanan,
-      nomorWhatsApp:
-        pengaturan?.nomorWhatsApp || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6283151195556",
+      nomorWhatsApp: settings?.nomorWhatsApp,
+      kodePesanan: order.kodePesanan,
     };
   } catch (error) {
-    console.error("Gagal mengunggah bukti bayar:", error);
-    return { ok: false, error: error.message || "Gagal mengunggah bukti pembayaran." };
+    if (upload)
+      await removeUpload(upload.public_id, { private: true }).catch(() => {});
+    publicError("turnitin.proof", error);
+    return {
+      ok: false,
+      error:
+        "Bukti belum tersimpan. Gunakan JPG, PNG, atau WebP maksimal 4 MB, lalu periksa status pesanan.",
+    };
   }
 }
-
-export async function checkTurnitinOrderStatus(kodePesanan) {
-  const code = String(kodePesanan || "").trim().toUpperCase();
-  if (!code) {
-    return { ok: false, error: "Masukkan kode pesanan." };
-  }
-
+export async function checkTurnitinOrderStatus(code) {
+  if (!(await allowed("track", 20)))
+    return { ok: false, error: "Terlalu banyak pencarian. Tunggu satu menit." };
+  const parsed = codeSchema.safeParse(
+    String(code || "")
+      .trim()
+      .toUpperCase(),
+  );
+  if (!parsed.success)
+    return { ok: false, error: "Masukkan kode pesanan Turnitin yang lengkap." };
   try {
-    const pesanan = await prisma.pesanan.findUnique({
-      where: { kodePesanan: code },
+    const order = await prisma.pesanan.findUnique({
+      where: { kodePesanan: parsed.data },
       include: { pembayaran: true },
     });
-
-    if (!pesanan || !pesanan.pembayaran) {
-      return { ok: false, error: "Pesanan Turnitin tidak ditemukan." };
-    }
-
-    if (
-      pesanan.pembayaran.status === "MENUNGGU_PEMBAYARAN" &&
-      pesanan.pembayaran.kedaluwarsaPada &&
-      pesanan.pembayaran.kedaluwarsaPada < new Date()
-    ) {
-      await prisma.$transaction([
-        prisma.pembayaran.update({
-          where: { id: pesanan.pembayaran.id },
-          data: { status: "KEDALUWARSA" },
-        }),
-        prisma.pesanan.update({
-          where: { id: pesanan.id },
-          data: { status: "KEDALUWARSA" },
-        }),
-      ]);
-      pesanan.status = "KEDALUWARSA";
-      pesanan.pembayaran.status = "KEDALUWARSA";
-    }
-
+    if (!order?.pembayaran || order.deletedAt || order.pembayaran.deletedAt)
+      return { ok: false, error: "Pesanan tidak ditemukan." };
+    const expired = await expireOrder(order.pembayaran);
+    const payment = order.pembayaran;
     return {
       ok: true,
       order: {
-        kodePesanan: pesanan.kodePesanan,
-        nama: pesanan.nama,
-        judul: pesanan.judul,
-        status: pesanan.status,
-        nominal: pesanan.pembayaran.nominal,
-        dokumenNama: pesanan.pembayaran.dokumenNama,
-        buktiPembayaranUrl: pesanan.pembayaran.buktiPembayaranUrl,
-        hasilPdfUrl: pesanan.pembayaran.hasilPdfUrl,
-        kedaluwarsaPada: pesanan.pembayaran.kedaluwarsaPada?.toISOString() || null,
+        kodePesanan: order.kodePesanan,
+        status: expired ? "KEDALUWARSA" : order.status,
+        nominal: payment.nominal,
+        paketNama: order.ringkasan?.paketNama || "",
+        qrisImageUrl: order.ringkasan?.qrisImageUrl || null,
+        namaRekening: order.ringkasan?.namaRekening || "",
+        kedaluwarsaPada: payment.kedaluwarsaPada?.toISOString(),
+        hasilPdfUrl:
+          payment.hasilPublicId && order.status === "SELESAI"
+            ? `/api/files?code=${order.kodePesanan}&kind=hasil`
+            : null,
       },
     };
   } catch (error) {
-    console.error("Gagal memeriksa status Turnitin:", error);
-    return { ok: false, error: "Tidak dapat memeriksa status pesanan saat ini." };
+    publicError("turnitin.track", error);
+    return { ok: false, error: "Status belum dapat dimuat. Coba lagi." };
   }
 }

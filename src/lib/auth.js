@@ -1,6 +1,7 @@
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { signSessionToken, verifySessionToken } from "./sessionToken";
+import { prisma } from "./prisma";
 
 export const ADMIN_COOKIE_NAME = "admin_session";
 
@@ -11,9 +12,19 @@ export function hashPassword(password) {
 }
 
 export function verifyPassword(password, storedHash) {
-  if (!storedHash || typeof storedHash !== "string" || !storedHash.includes(":")) {
+  if (
+    !storedHash ||
+    typeof storedHash !== "string" ||
+    !storedHash.includes(":")
+  ) {
     return false;
   }
+  if (
+    !/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(storedHash) ||
+    typeof password !== "string" ||
+    password.length > 1024
+  )
+    return false;
   const [salt, keyHex] = storedHash.split(":");
   const keyBuffer = Buffer.from(keyHex, "hex");
   const derivedBuffer = scryptSync(password, salt, 64);
@@ -47,7 +58,19 @@ export async function getAdminSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const payload = await verifySessionToken(token);
+  if (!payload || typeof payload.sub !== "string") return null;
+  try {
+    const admin = await prisma.admin.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, username: true, nama: true },
+    });
+    return admin
+      ? { sub: admin.id, username: admin.username, nama: admin.nama }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function requireAdminSession() {

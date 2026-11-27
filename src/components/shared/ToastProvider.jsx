@@ -45,23 +45,37 @@ export function ToastProvider({ children }) {
                 isError
                   ? "border-[#B42318] bg-[#FEF3F2] text-[#8F1D14]"
                   : isSuccess
-                  ? "border-[#167D8D] bg-[#E8F4F6] text-[#172B40]"
-                  : "border-[#DCE4EB] bg-white text-[#172B40]"
+                    ? "border-[#167D8D] bg-[#E8F4F6] text-[#172B40]"
+                    : "border-[#DCE4EB] bg-white text-[#172B40]"
               }`}
             >
               {isError ? (
-                <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0 text-[#B42318]" size={18} />
+                <AlertCircle
+                  aria-hidden="true"
+                  className="mt-0.5 shrink-0 text-[#B42318]"
+                  size={18}
+                />
               ) : isSuccess ? (
-                <CheckCircle2 aria-hidden="true" className="mt-0.5 shrink-0 text-[#116471]" size={18} />
+                <CheckCircle2
+                  aria-hidden="true"
+                  className="mt-0.5 shrink-0 text-[#116471]"
+                  size={18}
+                />
               ) : (
-                <Info aria-hidden="true" className="mt-0.5 shrink-0 text-[#16324F]" size={18} />
+                <Info
+                  aria-hidden="true"
+                  className="mt-0.5 shrink-0 text-[#16324F]"
+                  size={18}
+                />
               )}
-              <p className="flex-1 text-sm font-medium leading-snug">{toast.message}</p>
+              <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug">
+                {toast.message}
+              </p>
               <button
                 type="button"
                 aria-label="Tutup notifikasi"
                 onClick={() => dismissToast(toast.id)}
-                className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md text-[#526277] hover:bg-black/5"
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-[#526277] hover:bg-black/5"
               >
                 <X aria-hidden="true" size={16} />
               </button>
