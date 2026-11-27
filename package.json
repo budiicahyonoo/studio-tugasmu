@@ -2,12 +2,18 @@
   "name": "studio-tugasmu",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --project jsconfig.json --noEmit && tsc --project jsconfig.core.json --noEmit",
     "test": "vitest run",
+    "test:integration": "node --env-file=.env scripts/smoke-http.mjs",
+    "test:uploads": "node --env-file=.env scripts/smoke-uploads.mjs",
+    "db:migrate": "prisma migrate deploy",
+    "db:validate": "prisma validate",
     "seed": "node --env-file=.env prisma/seed.js"
   },
   "dependencies": {
@@ -19,19 +25,24 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.14.0",
-    "next": "16.2.6",
+    "next": "^16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.75.0",
     "tailwind-merge": "^3.5.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/node": "26.6.11",
+    "@types/react": "19.3.3",
+    "@types/react-dom": "19.3.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "^16.4.6",
+    "prettier": "3.10.1",
     "prisma": "^5.22.0",
     "tailwindcss": "^4",
+    "typescript": "6.0.3",
     "vitest": "^5.1.2"
   }
 }

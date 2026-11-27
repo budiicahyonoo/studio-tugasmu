@@ -33,7 +33,11 @@ export default async function PrivacyPage() {
         Lewati ke konten utama
       </a>
       <Navbar nomorWhatsApp={pengaturan.nomorWhatsApp} />
-      <main id="main-content" tabIndex="-1" className="mx-auto w-full max-w-3xl flex-grow px-4 py-10 sm:px-6 sm:py-12">
+      <main
+        id="main-content"
+        tabIndex="-1"
+        className="mx-auto w-full max-w-3xl flex-grow px-4 py-10 sm:px-6 sm:py-12"
+      >
         <article className="surface-card p-6 sm:p-10">
           <h1 className="text-[clamp(1.75rem,3vw,2.25rem)] font-bold text-[#16324F]">
             Kebijakan Privasi

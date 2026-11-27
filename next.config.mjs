@@ -1,11 +1,22 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   experimental: {
     serverActions: {
-      bodySizeLimit: '4mb', // Kita set ke 4MB agar sinkron dengan kode portfolio.js
+      bodySizeLimit: "5mb", // Multipart headers need room above the 4 MB file limit.
     },
   },
-  /* config options here */
 };
 
 export default nextConfig;

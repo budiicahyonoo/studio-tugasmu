@@ -48,11 +48,17 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="admin-username" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
+            <label
+              htmlFor="admin-username"
+              className="mb-1.5 block text-sm font-semibold text-[#172B40]"
+            >
               Username
             </label>
             <div className="relative">
-              <User aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#526277]" />
+              <User
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#526277]"
+              />
               <input
                 id="admin-username"
                 type="text"
@@ -66,11 +72,17 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="admin-password" className="mb-1.5 block text-sm font-semibold text-[#172B40]">
+            <label
+              htmlFor="admin-password"
+              className="mb-1.5 block text-sm font-semibold text-[#172B40]"
+            >
               Password
             </label>
             <div className="relative">
-              <Lock aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#526277]" />
+              <Lock
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#526277]"
+              />
               <input
                 id="admin-password"
                 type="password"
@@ -88,7 +100,9 @@ export default function LoginPage() {
             disabled={isLoading}
             className="btn-primary mt-2 w-full py-3"
           >
-            <span aria-live="polite">{isLoading ? "Memeriksa..." : "Masuk Dashboard"}</span>
+            <span aria-live="polite">
+              {isLoading ? "Memeriksa..." : "Masuk Dashboard"}
+            </span>
           </button>
         </form>
 

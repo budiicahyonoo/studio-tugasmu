@@ -1,4 +1,10 @@
-export function calculateEstimate({ tipeHitung, hargaPerUnit, jumlah, paketHarga }) {
+/** @param {{tipeHitung: string, hargaPerUnit?: number|string, jumlah?: number|string, paketHarga?: number|string}} input */
+export function calculateEstimate({
+  tipeHitung,
+  hargaPerUnit,
+  jumlah,
+  paketHarga,
+}) {
   if (tipeHitung === "PER_LEMBAR" || tipeHitung === "PER_SLIDE") {
     const unitPrice = Number(hargaPerUnit);
     const qty = Number(jumlah);
@@ -10,16 +16,24 @@ export function calculateEstimate({ tipeHitung, hargaPerUnit, jumlah, paketHarga
       throw new Error(
         tipeHitung === "PER_SLIDE"
           ? "Jumlah slide minimal 1."
-          : "Jumlah lembar minimal 1."
+          : "Jumlah lembar minimal 1.",
       );
     }
 
-    return unitPrice * qty;
+    const total = unitPrice * qty;
+    if (!Number.isSafeInteger(total) || total > 2147483647) {
+      throw new Error("Total melebihi batas Rupiah yang dapat disimpan.");
+    }
+    return total;
   }
 
   if (tipeHitung === "PER_PAKET") {
     const fixedPrice = Number(paketHarga);
-    if (!Number.isInteger(fixedPrice) || fixedPrice < 0) {
+    if (
+      !Number.isInteger(fixedPrice) ||
+      fixedPrice < 0 ||
+      fixedPrice > 2147483647
+    ) {
       throw new Error("Harga paket tidak valid.");
     }
     return fixedPrice;
@@ -28,12 +42,14 @@ export function calculateEstimate({ tipeHitung, hargaPerUnit, jumlah, paketHarga
   throw new Error(`Tipe hitungan tidak dikenal: ${tipeHitung}`);
 }
 
+/** @param {number|string} amount */
 export function formatRupiah(amount) {
   const numeric = Number(amount);
   if (!Number.isFinite(numeric)) return "Rp0";
   return `Rp${Math.round(numeric).toLocaleString("id-ID")}`;
 }
 
+/** @param {{kodePesanan?: string|null, nama: string, fakultasNama: string, kelompok: string, layananNama: string, paketNama?: string|null, tipeHitung: string, jumlah?: number|null, judul: string, deskripsi: string, total: number, estimasiSelesai: string}} order */
 export function buildWhatsAppOrderMessage({
   kodePesanan,
   nama,
@@ -52,8 +68,8 @@ export function buildWhatsAppOrderMessage({
     tipeHitung === "PER_PAKET"
       ? `Paket: ${paketNama || "-"}`
       : tipeHitung === "PER_SLIDE"
-      ? `Jumlah: ${jumlah} slide`
-      : `Jumlah: ${jumlah} lembar`;
+        ? `Jumlah: ${jumlah} slide`
+        : `Jumlah: ${jumlah} lembar`;
 
   const lines = [
     "Halo Admin Studio Tugasmu,",

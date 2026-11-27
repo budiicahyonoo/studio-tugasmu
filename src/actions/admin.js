@@ -1,561 +1,574 @@
-"use server";
-
+﻿"use server";
 import { revalidatePath } from "next/cache";
-import { v2 as cloudinary } from "cloudinary";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAdminSession } from "../lib/auth";
+import { orderIndexSchema, publicError, rupiahSchema } from "../lib/validation";
+import { removeUpload, uploadFile } from "../lib/uploads";
 
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+function refresh() {
+  [
+    "/",
+    "/simulasi",
+    "/layanan",
+    "/tarif",
+    "/ulasan",
+    "/faq",
+    "/turnitin",
+    "/privacy",
+    "/terms",
+    "/admin/dashboard",
+  ].forEach((path) => revalidatePath(path));
+}
+function failure(event, error) {
+  publicError(event, error);
+  return {
+    ok: false,
+    error:
+      error?.code === "P2002"
+        ? "Nama atau data yang sama sudah digunakan."
+        : error?.code === "P2003"
+          ? "Data masih digunakan pesanan atau layanan lain."
+          : "Perubahan belum tersimpan. Periksa data dan coba lagi.",
+  };
+}
+const facultySchema = z.object({
+  nama: z.string().trim().min(2).max(120),
+  kelompok: z.enum(["SAINTEK", "SOSHUM"]),
+  urutan: orderIndexSchema,
+  aktif: z.boolean(),
 });
-
-function revalidateAllPublicAndAdmin() {
-  revalidatePath("/");
-  revalidatePath("/simulasi");
-  revalidatePath("/layanan");
-  revalidatePath("/portofolio");
-  revalidatePath("/turnitin");
-  revalidatePath("/privacy");
-  revalidatePath("/terms");
-  revalidatePath("/admin/dashboard");
+const serviceSchema = z.object({
+  nama: z.string().trim().min(2).max(100),
+  kategori: z.string().min(1).max(40),
+  tipeHitung: z.enum(["PER_LEMBAR", "PER_SLIDE", "PER_PAKET"]),
+  estimasiSelesai: z.string().trim().min(2).max(60),
+  deskripsi: z.string().trim().max(2000),
+  urutan: orderIndexSchema,
+  aktif: z.boolean(),
+});
+function catalogInput(form) {
+  return {
+    ...Object.fromEntries(form),
+    urutan: form.get("urutan") || 0,
+    aktif: form.get("aktif") !== "false",
+    deskripsi: String(form.get("deskripsi") || ""),
+  };
 }
 
-// --- FAKULTAS ---
-export async function saveFakultas(formData) {
+export async function saveFakultas(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "").trim();
-  const nama = String(formData.get("nama") || "").trim();
-  const kelompok = String(formData.get("kelompok") || "SOSHUM");
-  const urutan = Number(formData.get("urutan") || 0);
-  const aktif = formData.get("aktif") !== "false";
-
-  const parsed = z
-    .object({
-      nama: z.string().min(2).max(120),
-      kelompok: z.enum(["SAINTEK", "SOSHUM"]),
-      urutan: z.number().int().min(0),
-    })
-    .safeParse({ nama, kelompok, urutan });
-
-  if (!parsed.success) {
-    return { ok: false, error: "Data fakultas tidak valid." };
-  }
-
+  const parsed = facultySchema.safeParse(catalogInput(form));
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Nama, kelompok, atau urutan fakultas tidak valid.",
+    };
   try {
-    if (id) {
-      await prisma.fakultas.update({
-        where: { id },
-        data: { ...parsed.data, aktif },
-      });
-    } else {
-      await prisma.fakultas.create({
-        data: { ...parsed.data, aktif },
-      });
-    }
-    revalidateAllPublicAndAdmin();
+    const id = String(form.get("id") || "");
+    if (id) await prisma.fakultas.update({ where: { id }, data: parsed.data });
+    else await prisma.fakultas.create({ data: parsed.data });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan fakultas." };
+    return failure("faculty.save", error);
   }
 }
-
-export async function deleteFakultas(formData) {
+export async function deleteFakultas(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "");
+  const id = String(form.get("id") || "");
   try {
-    const orderCount = await prisma.pesanan.count({ where: { fakultasId: id } });
-    if (orderCount > 0) {
-      await prisma.fakultas.update({ where: { id }, data: { aktif: false } });
-    } else {
-      await prisma.fakultas.delete({ where: { id } });
-    }
-    revalidateAllPublicAndAdmin();
+    await prisma.$transaction(async (tx) => {
+      if (await tx.pesanan.count({ where: { fakultasId: id } }))
+        await tx.fakultas.update({ where: { id }, data: { aktif: false } });
+      else await tx.fakultas.delete({ where: { id } });
+    });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menghapus fakultas." };
+    return failure("faculty.delete", error);
   }
 }
-
-// --- LAYANAN ---
-export async function saveLayanan(formData) {
+export async function saveLayanan(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "").trim();
-  const nama = String(formData.get("nama") || "").trim();
-  const kategori = String(formData.get("kategori") || "UMUM");
-  const tipeHitung = String(formData.get("tipeHitung") || "PER_LEMBAR");
-  const estimasiSelesai = String(formData.get("estimasiSelesai") || "1x24 jam").trim();
-  const deskripsi = String(formData.get("deskripsi") || "").trim() || null;
-  const urutan = Number(formData.get("urutan") || 0);
-  const aktif = formData.get("aktif") !== "false";
-
-  const parsed = z
-    .object({
-      nama: z.string().min(2).max(100),
-      kategori: z.enum(["UMUM", "KHUSUS", "PKL"]),
-      tipeHitung: z.enum(["PER_LEMBAR", "PER_SLIDE", "PER_PAKET"]),
-      estimasiSelesai: z.string().min(2).max(60),
-      urutan: z.number().int().min(0),
-    })
-    .safeParse({ nama, kategori, tipeHitung, estimasiSelesai, urutan });
-
-  if (!parsed.success) {
-    return { ok: false, error: "Data layanan tidak valid." };
-  }
-
+  const parsed = serviceSchema.safeParse(catalogInput(form));
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Lengkapi nama, kategori, tipe, estimasi, dan urutan layanan.",
+    };
   try {
-    if (id) {
-      await prisma.layanan.update({
-        where: { id },
-        data: { ...parsed.data, deskripsi, aktif },
-      });
-    } else {
-      await prisma.layanan.create({
-        data: { ...parsed.data, deskripsi, aktif },
-      });
-    }
-    revalidateAllPublicAndAdmin();
+    const id = String(form.get("id") || "");
+    if (id) await prisma.layanan.update({ where: { id }, data: parsed.data });
+    else await prisma.layanan.create({ data: parsed.data });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan layanan." };
+    return failure("service.save", error);
   }
 }
-
-export async function deleteLayanan(formData) {
+export async function deleteLayanan(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "");
+  const id = String(form.get("id") || "");
   try {
-    const orderCount = await prisma.pesanan.count({ where: { layananId: id } });
-    if (orderCount > 0) {
-      await prisma.layanan.update({ where: { id }, data: { aktif: false } });
-    } else {
-      await prisma.layanan.delete({ where: { id } });
-    }
-    revalidateAllPublicAndAdmin();
+    await prisma.$transaction(async (tx) => {
+      if (await tx.pesanan.count({ where: { layananId: id } }))
+        await tx.layanan.update({ where: { id }, data: { aktif: false } });
+      else await tx.layanan.delete({ where: { id } });
+    });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menghapus layanan." };
+    return failure("service.delete", error);
   }
 }
-
-// --- TARIF ---
-export async function saveTarif(formData) {
+export async function saveTarif(form) {
   const admin = await requireAdminSession();
-  const layananId = String(formData.get("layananId") || "");
-  const kelompok = String(formData.get("kelompok") || "SOSHUM");
-  const hargaPerUnit = Number(formData.get("hargaPerUnit"));
-
   const parsed = z
     .object({
       layananId: z.string().min(1),
       kelompok: z.enum(["SAINTEK", "SOSHUM"]),
-      hargaPerUnit: z.number().int().min(0),
+      hargaPerUnit: rupiahSchema,
     })
-    .safeParse({ layananId, kelompok, hargaPerUnit });
-
-  if (!parsed.success) {
-    return { ok: false, error: "Tarif harus berupa angka Rupiah bulat." };
-  }
-
+    .safeParse(Object.fromEntries(form));
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Tarif harus Rupiah bulat dari 0 sampai 2.147.483.647.",
+    };
   try {
-    const layanan = await prisma.layanan.findUnique({ where: { id: layananId } });
-    const existing = await prisma.tarif.findUnique({
-      where: { layananId_kelompok: { layananId, kelompok } },
-    });
-
-    const saved = await prisma.tarif.upsert({
-      where: { layananId_kelompok: { layananId, kelompok } },
-      update: { hargaPerUnit },
-      create: { layananId, kelompok, hargaPerUnit },
-    });
-
-    if (!existing || existing.hargaPerUnit !== hargaPerUnit) {
-      await prisma.riwayatHarga.create({
+    await prisma.$transaction(
+      async (tx) => {
+        const { layananId, kelompok, hargaPerUnit } = parsed.data;
+        const service = await tx.layanan.findUniqueOrThrow({
+          where: { id: layananId },
+        });
+        if (service.tipeHitung === "PER_PAKET")
+          throw new Error("Paket tidak memakai tarif unit.");
+        const where = { layananId_kelompok: { layananId, kelompok } };
+        const old = await tx.tarif.findUnique({ where });
+        const saved = await tx.tarif.upsert({
+          where,
+          create: parsed.data,
+          update: { hargaPerUnit },
+        });
+        if (!old || old.hargaPerUnit !== hargaPerUnit)
+          await tx.riwayatHarga.create({
+            data: {
+              entitas: "TARIF",
+              referensiId: saved.id,
+              keterangan: `${service.nama} (${kelompok})`,
+              nilaiLama: old?.hargaPerUnit ?? 0,
+              nilaiBaru: hargaPerUnit,
+              diubahOleh: admin.username,
+            },
+          });
+      },
+      { isolationLevel: "Serializable" },
+    );
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("rate.save", error);
+  }
+}
+export async function deleteTarif(form) {
+  const admin = await requireAdminSession();
+  try {
+    await prisma.$transaction(async (tx) => {
+      const old = await tx.tarif.delete({
+        where: { id: String(form.get("id") || "") },
+      });
+      await tx.riwayatHarga.create({
         data: {
           entitas: "TARIF",
-          referensiId: saved.id,
-          keterangan: `${layanan?.nama || "Layanan"} (${kelompok})`,
-          nilaiLama: existing?.hargaPerUnit ?? 0,
-          nilaiBaru: hargaPerUnit,
+          referensiId: old.id,
+          keterangan: `Tarif dihapus (${old.kelompok})`,
+          nilaiLama: old.hargaPerUnit,
+          nilaiBaru: 0,
           diubahOleh: admin.username,
         },
       });
-    }
-
-    revalidateAllPublicAndAdmin();
+    });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan tarif." };
+    return failure("rate.delete", error);
   }
 }
-
-// --- PAKET & BENEFIT ---
-export async function savePaket(formData) {
+export async function savePaket(form) {
   const admin = await requireAdminSession();
-  const id = String(formData.get("id") || "").trim();
-  const layananId = String(formData.get("layananId") || "");
-  const kelompok = String(formData.get("kelompok") || "SOSHUM");
-  const nama = String(formData.get("nama") || "").trim();
-  const deskripsi = String(formData.get("deskripsi") || "").trim() || null;
-  const harga = Number(formData.get("harga"));
-  const urutan = Number(formData.get("urutan") || 0);
-
   const parsed = z
     .object({
       layananId: z.string().min(1),
       kelompok: z.enum(["SAINTEK", "SOSHUM"]),
-      nama: z.string().min(2).max(100),
-      harga: z.number().int().min(0),
-      urutan: z.number().int().min(0),
+      nama: z.string().trim().min(2).max(100),
+      deskripsi: z.string().trim().max(2000),
+      harga: rupiahSchema,
+      urutan: orderIndexSchema,
     })
-    .safeParse({ layananId, kelompok, nama, harga, urutan });
-
-  if (!parsed.success) {
-    return { ok: false, error: "Data paket tidak valid." };
-  }
-
+    .safeParse(catalogInput(form));
+  if (!parsed.success)
+    return { ok: false, error: "Nama, harga, atau urutan paket tidak valid." };
   try {
-    const layanan = await prisma.layanan.findUnique({ where: { id: layananId } });
-    if (id) {
-      const existing = await prisma.paket.findUnique({ where: { id } });
-      await prisma.paket.update({
-        where: { id },
-        data: { ...parsed.data, deskripsi },
-      });
-      if (existing && existing.harga !== harga) {
-        await prisma.riwayatHarga.create({
-          data: {
-            entitas: "PAKET",
-            referensiId: id,
-            keterangan: `${layanan?.nama || "Layanan"} - ${nama} (${kelompok})`,
-            nilaiLama: existing.harga,
-            nilaiBaru: harga,
-            diubahOleh: admin.username,
-          },
+    await prisma.$transaction(
+      async (tx) => {
+        const id = String(form.get("id") || "");
+        const service = await tx.layanan.findUniqueOrThrow({
+          where: { id: parsed.data.layananId },
         });
-      }
-    } else {
-      const created = await prisma.paket.create({
-        data: { ...parsed.data, deskripsi },
+        if (service.tipeHitung !== "PER_PAKET")
+          throw new Error("Layanan harus bertipe paket.");
+        const old = id
+          ? await tx.paket.findUniqueOrThrow({ where: { id } })
+          : null;
+        const saved = id
+          ? await tx.paket.update({ where: { id }, data: parsed.data })
+          : await tx.paket.create({ data: parsed.data });
+        if (!old || old.harga !== saved.harga)
+          await tx.riwayatHarga.create({
+            data: {
+              entitas: "PAKET",
+              referensiId: saved.id,
+              keterangan: `${service.nama}: ${saved.nama} (${saved.kelompok})`,
+              nilaiLama: old?.harga ?? 0,
+              nilaiBaru: saved.harga,
+              diubahOleh: admin.username,
+            },
+          });
+      },
+      { isolationLevel: "Serializable" },
+    );
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("package.save", error);
+  }
+}
+export async function deletePaket(form) {
+  const admin = await requireAdminSession();
+  try {
+    await prisma.$transaction(async (tx) => {
+      const old = await tx.paket.delete({
+        where: { id: String(form.get("id") || "") },
       });
-      await prisma.riwayatHarga.create({
+      await tx.riwayatHarga.create({
         data: {
           entitas: "PAKET",
-          referensiId: created.id,
-          keterangan: `${layanan?.nama || "Layanan"} - ${nama} (${kelompok})`,
-          nilaiLama: 0,
-          nilaiBaru: harga,
+          referensiId: old.id,
+          keterangan: `Paket dihapus: ${old.nama}`,
+          nilaiLama: old.harga,
+          nilaiBaru: 0,
           diubahOleh: admin.username,
         },
       });
-    }
-    revalidateAllPublicAndAdmin();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan paket." };
-  }
-}
-
-export async function deletePaket(formData) {
-  await requireAdminSession();
-  const id = String(formData.get("id") || "");
-  try {
-    await prisma.paket.delete({ where: { id } });
-    revalidateAllPublicAndAdmin();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Gagal menghapus paket." };
-  }
-}
-
-export async function saveBenefit(formData) {
-  await requireAdminSession();
-  const id = String(formData.get("id") || "").trim();
-  const layananId = String(formData.get("layananId") || "").trim() || null;
-  const paketId = String(formData.get("paketId") || "").trim() || null;
-  const teks = String(formData.get("teks") || "").trim();
-
-  if (!teks || (!layananId && !paketId)) {
-    return { ok: false, error: "Teks benefit dan target layanan/paket wajib diisi." };
-  }
-
-  try {
-    if (id) {
-      await prisma.benefit.update({ where: { id }, data: { teks } });
-    } else {
-      const count = await prisma.benefit.count({
-        where: layananId ? { layananId } : { paketId },
-      });
-      await prisma.benefit.create({
-        data: { layananId, paketId, teks, urutan: count + 1 },
-      });
-    }
-    revalidateAllPublicAndAdmin();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan benefit." };
-  }
-}
-
-export async function moveBenefit(formData) {
-  await requireAdminSession();
-  const id = String(formData.get("id") || "");
-  const direction = String(formData.get("direction") || "up");
-
-  try {
-    const current = await prisma.benefit.findUnique({ where: { id } });
-    if (!current) return { ok: false, error: "Benefit tidak ditemukan." };
-
-    const siblings = await prisma.benefit.findMany({
-      where: current.paketId ? { paketId: current.paketId } : { layananId: current.layananId },
-      orderBy: { urutan: "asc" },
     });
-
-    const index = siblings.findIndex((b) => b.id === id);
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= siblings.length) {
-      return { ok: true };
-    }
-
-    const other = siblings[swapIndex];
-    await prisma.$transaction([
-      prisma.benefit.update({ where: { id: current.id }, data: { urutan: other.urutan } }),
-      prisma.benefit.update({ where: { id: other.id }, data: { urutan: current.urutan } }),
-    ]);
-
-    revalidateAllPublicAndAdmin();
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal mengurutkan benefit." };
+    return failure("package.delete", error);
   }
 }
-
-export async function deleteBenefit(formData) {
+export async function saveBenefit(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "");
+  const teks = String(form.get("teks") || "").trim();
+  const layananId = String(form.get("layananId") || "") || null;
+  const paketId = String(form.get("paketId") || "") || null;
+  if (
+    teks.length < 2 ||
+    teks.length > 1000 ||
+    Boolean(layananId) === Boolean(paketId)
+  )
+    return {
+      ok: false,
+      error: "Isi benefit dan pilih tepat satu layanan atau paket.",
+    };
   try {
-    await prisma.benefit.delete({ where: { id } });
-    revalidateAllPublicAndAdmin();
+    const id = String(form.get("id") || "");
+    const data = {
+      teks,
+      layananId,
+      paketId,
+      urutan: orderIndexSchema.parse(form.get("urutan") || 0),
+    };
+    if (id) await prisma.benefit.update({ where: { id }, data });
+    else await prisma.benefit.create({ data });
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menghapus benefit." };
+    return failure("benefit.save", error);
   }
 }
-
-// --- PESANAN ---
-export async function updatePesananStatus(formData) {
+export async function moveBenefit(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "");
-  const status = String(formData.get("status") || "");
-  const catatanAdmin = String(formData.get("catatanAdmin") || "").trim() || null;
-
+  const id = String(form.get("id") || "");
+  const direction = form.get("direction");
+  if (!["up", "down"].includes(direction))
+    return { ok: false, error: "Arah urutan tidak valid." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.benefit.findUniqueOrThrow({ where: { id } });
+      const siblings = await tx.benefit.findMany({
+        where: current.paketId
+          ? { paketId: current.paketId }
+          : { layananId: current.layananId },
+        orderBy: [{ urutan: "asc" }, { id: "asc" }],
+      });
+      const index = siblings.findIndex((item) => item.id === id);
+      const target = index + (direction === "up" ? -1 : 1);
+      if (target < 0 || target >= siblings.length) return;
+      [siblings[index], siblings[target]] = [siblings[target], siblings[index]];
+      for (const [position, item] of siblings.entries())
+        await tx.benefit.update({
+          where: { id: item.id },
+          data: { urutan: position },
+        });
+    });
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("benefit.move", error);
+  }
+}
+export async function deleteBenefit(form) {
+  await requireAdminSession();
+  try {
+    await prisma.benefit.delete({
+      where: { id: String(form.get("id") || "") },
+    });
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("benefit.delete", error);
+  }
+}
+export async function updatePesananStatus(form) {
+  await requireAdminSession();
   const parsed = z
-    .enum([
-      "BARU",
-      "DIPROSES",
-      "SELESAI",
-      "DIBATALKAN",
-      "MENUNGGU_PEMBAYARAN",
-      "MENUNGGU_VERIFIKASI",
-      "DIBAYAR",
-      "KEDALUWARSA",
-    ])
-    .safeParse(status);
-
-  if (!parsed.success) {
+    .enum(["BARU", "DIPROSES", "SELESAI", "DIBATALKAN"])
+    .safeParse(form.get("status"));
+  if (!parsed.success)
     return { ok: false, error: "Status pesanan tidak valid." };
-  }
-
   try {
+    const id = String(form.get("id") || "");
+    const order = await prisma.pesanan.findUniqueOrThrow({
+      where: { id },
+      include: { pembayaran: true },
+    });
+    if (order.deletedAt || order.pembayaran)
+      return {
+        ok: false,
+        error: "Pesanan pembayaran dikelola melalui menu Pembayaran.",
+      };
     await prisma.pesanan.update({
       where: { id },
-      data: { status: parsed.data, catatanAdmin },
+      data: {
+        status: parsed.data,
+        catatanAdmin: String(form.get("catatanAdmin") || "").slice(0, 2000),
+      },
     });
-    revalidatePath("/admin/dashboard");
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal memperbarui status pesanan." };
+    return failure("order.status", error);
   }
 }
-
-export async function softDeletePesanan(formData) {
+export async function softDeletePesanan(form) {
   await requireAdminSession();
-  const id = String(formData.get("id") || "");
   try {
-    await prisma.pesanan.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    revalidatePath("/admin/dashboard");
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Gagal menghapus pesanan." };
-  }
-}
-
-// --- PEMBAYARAN QRIS & TURNITIN ---
-export async function verifyTurnitinPayment(formData) {
-  const admin = await requireAdminSession();
-  const pembayaranId = String(formData.get("pembayaranId") || "");
-  try {
-    const pembayaran = await prisma.pembayaran.findUnique({ where: { id: pembayaranId } });
-    if (!pembayaran) return { ok: false, error: "Data pembayaran tidak ditemukan." };
-
+    const id = String(form.get("id") || "");
     await prisma.$transaction([
-      prisma.pembayaran.update({
-        where: { id: pembayaranId },
-        data: {
-          status: "DIBAYAR",
-          diverifikasiOleh: admin.username,
-          dibayarPada: new Date(),
-        },
-      }),
-      prisma.pesanan.update({
-        where: { id: pembayaran.pesananId },
-        data: { status: "DIBAYAR" },
+      prisma.pesanan.update({ where: { id }, data: { deletedAt: new Date() } }),
+      prisma.pembayaran.updateMany({
+        where: { pesananId: id },
+        data: { deletedAt: new Date() },
       }),
     ]);
-
-    revalidateAllPublicAndAdmin();
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal memverifikasi pembayaran." };
+    return failure("order.delete", error);
   }
 }
-
-export async function rejectTurnitinPayment(formData) {
+export async function verifyTurnitinPayment(form) {
   const admin = await requireAdminSession();
-  const pembayaranId = String(formData.get("pembayaranId") || "");
   try {
-    const pembayaran = await prisma.pembayaran.findUnique({ where: { id: pembayaranId } });
-    if (!pembayaran) return { ok: false, error: "Data pembayaran tidak ditemukan." };
-
+    await prisma.$transaction(
+      async (tx) => {
+        const payment = await tx.pembayaran.findUniqueOrThrow({
+          where: { id: String(form.get("pembayaranId") || "") },
+          include: { pesanan: true },
+        });
+        if (
+          payment.deletedAt ||
+          payment.pesanan.deletedAt ||
+          payment.status !== "MENUNGGU_VERIFIKASI" ||
+          !payment.buktiPublicId
+        )
+          throw new Error("Bukti belum tersedia.");
+        await tx.pembayaran.update({
+          where: { id: payment.id },
+          data: {
+            status: "DIBAYAR",
+            diverifikasiOleh: admin.username,
+            dibayarPada: new Date(),
+          },
+        });
+        await tx.pesanan.update({
+          where: { id: payment.pesananId },
+          data: { status: "DIBAYAR" },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("payment.verify", error);
+  }
+}
+export async function rejectTurnitinPayment(form) {
+  const admin = await requireAdminSession();
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        const payment = await tx.pembayaran.findUniqueOrThrow({
+          where: { id: String(form.get("pembayaranId") || "") },
+        });
+        if (payment.deletedAt || payment.status !== "MENUNGGU_VERIFIKASI")
+          throw new Error("Status pembayaran tidak sesuai.");
+        await tx.pembayaran.update({
+          where: { id: payment.id },
+          data: { status: "DITOLAK", diverifikasiOleh: admin.username },
+        });
+        await tx.pesanan.update({
+          where: { id: payment.pesananId },
+          data: { status: "DIBATALKAN" },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return failure("payment.reject", error);
+  }
+}
+export async function uploadTurnitinResultPdf(form) {
+  await requireAdminSession();
+  let upload;
+  try {
+    const payment = await prisma.pembayaran.findUniqueOrThrow({
+      where: { id: String(form.get("pembayaranId") || "") },
+      include: { pesanan: true },
+    });
+    if (
+      payment.deletedAt ||
+      payment.pesanan.deletedAt ||
+      payment.status !== "DIBAYAR"
+    )
+      return {
+        ok: false,
+        error: "Verifikasi pembayaran sebelum mengunggah hasil.",
+      };
+    upload = await uploadFile(
+      form.get("hasilPdfFile"),
+      "studio_turnitin_results",
+      { pdf: true, private: true },
+    );
     await prisma.$transaction([
       prisma.pembayaran.update({
-        where: { id: pembayaranId },
-        data: { status: "DITOLAK", diverifikasiOleh: admin.username },
+        where: { id: payment.id },
+        data: { hasilPublicId: upload.public_id, hasilPdfUrl: null },
       }),
       prisma.pesanan.update({
-        where: { id: pembayaran.pesananId },
-        data: { status: "DIBATALKAN" },
+        where: { id: payment.pesananId },
+        data: { status: "SELESAI" },
       }),
     ]);
-
-    revalidateAllPublicAndAdmin();
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menolak pembayaran." };
-  }
-}
-
-export async function uploadTurnitinResultPdf(formData) {
-  await requireAdminSession();
-  const pembayaranId = String(formData.get("pembayaranId") || "");
-  const file = formData.get("hasilPdfFile");
-
-  if (!file || typeof file === "string" || file.size === 0) {
-    return { ok: false, error: "Pilih file PDF hasil Turnitin." };
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    return { ok: false, error: "Ukuran file PDF maksimal 4 MB." };
-  }
-
-  try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const upload = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "turnitin_results", resource_type: "auto" },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
+    if (upload)
+      await removeUpload(upload.public_id, { pdf: true, private: true }).catch(
+        () => {},
       );
-      stream.end(buffer);
-    });
-
-    const pembayaran = await prisma.pembayaran.update({
-      where: { id: pembayaranId },
-      data: { hasilPdfUrl: upload.secure_url },
-    });
-
-    await prisma.pesanan.update({
-      where: { id: pembayaran.pesananId },
-      data: { status: "SELESAI" },
-    });
-
-    revalidateAllPublicAndAdmin();
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error: error.message || "Gagal mengunggah hasil PDF." };
+    return failure("payment.result", error);
   }
 }
-
-// --- PENGATURAN ---
-export async function savePengaturan(formData) {
+export async function savePengaturan(form) {
   await requireAdminSession();
-  const nomorWhatsApp = String(formData.get("nomorWhatsApp") || "").replace(/[^0-9]/g, "");
-  const namaRekening = String(formData.get("namaRekening") || "").trim() || null;
-  const syaratKetentuan = String(formData.get("syaratKetentuan") || "").trim();
-  const kebijakanPrivasi = String(formData.get("kebijakanPrivasi") || "").trim();
-  const instagramUrl = String(formData.get("instagramUrl") || "").trim();
-  const emailKontak = String(formData.get("emailKontak") || "").trim();
-  const calendlyUrl = String(formData.get("calendlyUrl") || "").trim();
-  const qrisFile = formData.get("qrisFile");
-
-  if (!nomorWhatsApp || nomorWhatsApp.length < 9) {
-    return { ok: false, error: "Nomor WhatsApp admin tidak valid." };
-  }
-
+  const parsed = z
+    .object({
+      nomorWhatsApp: z.string().regex(/^62[0-9]{7,13}$/),
+      namaRekening: z.string().trim().max(120),
+      syaratKetentuan: z.string().trim().max(30000),
+      kebijakanPrivasi: z.string().trim().max(30000),
+      instagramUrl: z
+        .string()
+        .url()
+        .refine((value) => {
+          const u = new URL(value);
+          return (
+            u.protocol === "https:" &&
+            ["instagram.com", "www.instagram.com"].includes(u.hostname)
+          );
+        }),
+      emailKontak: z.string().email().max(250),
+      calendlyUrl: z
+        .string()
+        .max(500)
+        .refine((value) => !value || /^https:\/\/calendly\.com\//.test(value)),
+      jumlahKlienDibantu: z.union([
+        z.null(),
+        z.coerce.number().int().min(0).max(2147483647),
+      ]),
+      turnitinAktif: z.boolean(),
+      turnitinMaksMb: z.coerce.number().int().min(1).max(4),
+      turnitinBatasJam: z.coerce.number().int().min(1).max(168),
+    })
+    .safeParse({
+      ...Object.fromEntries(form),
+      nomorWhatsApp: String(form.get("nomorWhatsApp") || "").replace(/\D/g, ""),
+      calendlyUrl: String(form.get("calendlyUrl") || ""),
+      jumlahKlienDibantu:
+        form.get("jumlahKlienDibantu") === ""
+          ? null
+          : form.get("jumlahKlienDibantu"),
+      turnitinAktif: form.get("turnitinAktif") === "true",
+      turnitinMaksMb: form.get("turnitinMaksMb") || 4,
+      turnitinBatasJam: form.get("turnitinBatasJam") || 24,
+    });
+  if (!parsed.success)
+    return {
+      ok: false,
+      error:
+        "Periksa nomor WhatsApp (628...), URL Instagram/Calendly, email, dan angka pengaturan.",
+    };
+  let upload;
   try {
-    let qrisImageUrl;
-    if (qrisFile && typeof qrisFile !== "string" && qrisFile.size > 0) {
-      if (qrisFile.size > 4 * 1024 * 1024) {
-        return { ok: false, error: "Ukuran gambar QRIS maksimal 4 MB." };
-      }
-      const buffer = Buffer.from(await qrisFile.arrayBuffer());
-      const upload = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "qris_seabank", resource_type: "image" },
-          (error, result) => {
-            if (error) return reject(error);
-            resolve(result);
-          }
-        );
-        stream.end(buffer);
-      });
-      qrisImageUrl = upload.secure_url;
-    }
-
+    const old = await prisma.pengaturan.findUnique({
+      where: { id: "default" },
+    });
+    const file = form.get("qrisFile");
+    if (file && typeof file !== "string" && file.size)
+      upload = await uploadFile(file, "studio_qris");
+    if (parsed.data.turnitinAktif && !(upload || old?.qrisImageUrl))
+      return { ok: false, error: "Unggah QRIS sebelum mengaktifkan Turnitin." };
+    const data = {
+      ...parsed.data,
+      turnitinFormat: "application/pdf",
+      ...(upload ? { qrisImageUrl: upload.secure_url } : {}),
+    };
     await prisma.pengaturan.upsert({
       where: { id: "default" },
-      update: {
-        nomorWhatsApp,
-        namaRekening,
-        syaratKetentuan,
-        kebijakanPrivasi,
-        instagramUrl,
-        emailKontak,
-        calendlyUrl,
-        ...(qrisImageUrl ? { qrisImageUrl } : {}),
-      },
-      create: {
-        id: "default",
-        nomorWhatsApp,
-        namaRekening,
-        syaratKetentuan,
-        kebijakanPrivasi,
-        instagramUrl,
-        emailKontak,
-        calendlyUrl,
-        qrisImageUrl: qrisImageUrl || null,
-      },
+      update: data,
+      create: data,
     });
-
-    revalidateAllPublicAndAdmin();
+    refresh();
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error.message || "Gagal menyimpan pengaturan." };
+    if (upload) await removeUpload(upload.public_id).catch(() => {});
+    return failure("settings.save", error);
   }
 }

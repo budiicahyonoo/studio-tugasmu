@@ -14,12 +14,6 @@ enum Kelompok {
   SOSHUM
 }
 
-enum KategoriLayanan {
-  UMUM
-  KHUSUS
-  PKL
-}
-
 enum TipeHitung {
   PER_LEMBAR
   PER_SLIDE
@@ -62,10 +56,18 @@ model Fakultas {
   pesanan   Pesanan[]
 }
 
+model Kategori {
+  id      String    @id
+  nama    String    @unique
+  urutan  Int       @default(0)
+  layanan Layanan[]
+}
+
 model Layanan {
   id              String          @id @default(cuid())
   nama            String          @unique
-  kategori        KategoriLayanan
+  kategori        String
+  kategoriData    Kategori        @relation(fields: [kategori], references: [id])
   tipeHitung      TipeHitung
   estimasiSelesai String          @default("1x24 jam")
   deskripsi       String?
@@ -133,6 +135,10 @@ model Pesanan {
   id            String        @id @default(cuid())
   kodePesanan   String        @unique
   nama          String
+  jenjang       String        @default("MAHASISWA")
+  nomorWhatsApp String?
+  requestId     String?       @unique
+  ringkasan     Json?
   fakultasId    String
   layananId     String
   paketId       String?
@@ -162,6 +168,9 @@ model Pembayaran {
   nominal            Int
   dokumenUrl         String?
   dokumenNama        String?
+  dokumenPublicId    String?
+  buktiPublicId      String?
+  hasilPublicId      String?
   buktiPembayaranUrl String?
   hasilPdfUrl        String?
   status             StatusPembayaran @default(MENUNGGU_PEMBAYARAN)
@@ -187,7 +196,36 @@ model Pengaturan {
   instagramUrl     String   @default("https://www.instagram.com/studiotugasmu19/")
   emailKontak      String   @default("halo@studiotugasmu.com")
   calendlyUrl      String   @default("https://calendly.com/budicahyono-dev/new-meeting")
+  jumlahKlienDibantu Int?
+  turnitinAktif    Boolean  @default(false)
+  turnitinMaksMb   Int      @default(4)
+  turnitinFormat   String   @default("application/pdf")
+  turnitinBatasJam Int      @default(24)
   updatedAt        DateTime @updatedAt
+}
+
+model GaleriUlasan {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  publicId  String?
+  label     String
+  lebar     Int
+  tinggi    Int
+  urutan    Int      @default(0)
+  tampil    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([label])
+}
+
+model Faq {
+  id           String  @id @default(cuid())
+  pertanyaan   String
+  jawaban      String
+  labelTombol  String?
+  tujuanTombol String?
+  urutan       Int     @default(0)
+  tampil       Boolean @default(true)
 }
 
 model Admin {
@@ -197,6 +235,14 @@ model Admin {
   nama         String   @default("Admin Tugasmu19")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
 }
 
 model Ulasan {

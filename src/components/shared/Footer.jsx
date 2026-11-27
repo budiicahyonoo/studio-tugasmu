@@ -23,8 +23,8 @@ export default function Footer({
               />
             </Link>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-[#526277]">
-              Platform bantuan akademik dengan simulasi harga transparan sesuai kelompok fakultas
-              dan konfirmasi langsung ke WhatsApp admin.
+              Platform bantuan akademik dengan simulasi harga transparan sesuai
+              kelompok fakultas dan konfirmasi langsung ke WhatsApp admin.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
               <a
@@ -49,38 +49,68 @@ export default function Footer({
             <h2 className="text-sm font-bold text-[#16324F]">Navigasi</h2>
             <ul className="mt-3 space-y-1 text-sm text-[#526277]">
               <li>
-                <Link href="/simulasi" className="inline-flex min-h-11 items-center hover:text-[#116471]">
+                <Link
+                  href="/simulasi"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
                   Simulasi Harga
                 </Link>
               </li>
               <li>
-                <Link href="/layanan" className="inline-flex min-h-11 items-center hover:text-[#116471]">
+                <Link
+                  href="/layanan"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
                   Katalog Layanan
                 </Link>
               </li>
               <li>
-                <Link href="/turnitin" className="inline-flex min-h-11 items-center hover:text-[#116471]">
+                <Link
+                  href="/turnitin"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
                   Cek Turnitin
                 </Link>
               </li>
               <li>
-                <Link href="/portofolio" className="inline-flex min-h-11 items-center hover:text-[#116471]">
-                  Portofolio
+                <Link
+                  href="/ulasan"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
+                  Galeri ulasan
                 </Link>
               </li>
             </ul>
           </div>
 
           <div className="md:col-span-3">
-            <h2 className="text-sm font-bold text-[#16324F]">Informasi Legal</h2>
+            <h2 className="text-sm font-bold text-[#16324F]">Informasi</h2>
+            <Link
+              href="/faq"
+              className="inline-flex min-h-11 items-center text-sm hover:text-[#116471]"
+            >
+              FAQ
+            </Link>
+            <Link
+              href="/tarif"
+              className="ml-4 inline-flex min-h-11 items-center text-sm hover:text-[#116471]"
+            >
+              Tarif
+            </Link>
             <ul className="mt-3 space-y-1 text-sm text-[#526277]">
               <li>
-                <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-[#116471]">
+                <Link
+                  href="/privacy"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-[#116471]">
+                <Link
+                  href="/terms"
+                  className="inline-flex min-h-11 items-center hover:text-[#116471]"
+                >
                   Terms of Service
                 </Link>
               </li>
@@ -89,7 +119,9 @@ export default function Footer({
         </div>
 
         <div className="mt-8 flex flex-col items-start justify-between gap-2 border-t border-[#DCE4EB] pt-6 text-xs text-[#526277] sm:flex-row sm:items-center">
-          <span>© {currentYear} Studio Tugasmu. Seluruh hak cipta dilindungi.</span>
+          <span>
+            © {currentYear} Studio Tugasmu. Seluruh hak cipta dilindungi.
+          </span>
           <span className="font-medium text-[#16324F]">
             Tarif pasti untuk mahasiswa dan siswa
           </span>
