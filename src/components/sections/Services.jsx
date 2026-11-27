@@ -1,70 +1,165 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import DatabaseUnavailable from "../shared/DatabaseUnavailable";
+import { formatRupiah } from "../../lib/calculateEstimate";
 
-export default function Services({ layananDb = [] }) {
-  const dataLaporan = layananDb.filter(item => item.kategori === "Laporan");
-  const dataSoal = layananDb.filter(item => item.kategori === "Soal");
-  const dataProjek = layananDb.filter(item => item.kategori === "Projek");
+const CATEGORIES = [
+  {
+    key: "UMUM",
+    label: "Umum",
+    description: "Artikel, paper, makalah, dan slide presentasi (PPT) dihitung per lembar atau slide.",
+  },
+  {
+    key: "KHUSUS",
+    label: "Khusus",
+    description: "Pendampingan skripsi, tesis, dan projek dengan pilihan cakupan paket tetap.",
+  },
+  {
+    key: "PKL",
+    label: "PKL & Praktikum",
+    description: "Satu paket lengkap untuk laporan praktikum, laporan PKL, dan observasi.",
+  },
+];
 
-  const serviceCategories = [
-    {
-      kategori: "Laporan & Karya Tulis",
-      deskripsi: "Bantuan penulisan akademik yang terstruktur dan bebas plagiarisme.",
-      layanan: dataLaporan
-    },
-    {
-      kategori: "Tugas Soal & Analisis",
-      deskripsi: "Penyelesaian soal teknis dan analisis data akurat beserta langkahnya.",
-      layanan: dataSoal
-    },
-    {
-      kategori: "Paket Projek & Skripsi",
-      deskripsi: "Pendampingan penuh untuk projek akhir atau aplikasi dengan konsultasi.",
-      layanan: dataProjek
-    }
-  ];
+export default function Services({ layananDb = [], dataUnavailable = false }) {
+  const [activeTab, setActiveTab] = useState("UMUM");
+  const activeMeta = CATEGORIES.find((c) => c.key === activeTab) || CATEGORIES[0];
+  const filteredItems = layananDb.filter((item) => item.kategori === activeTab);
 
   return (
-    <section id="layanan" className="py-24 px-6 relative bg-[#000000]">
-      <div className="container mx-auto max-w-6xl">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#FFFFFF] mb-4">Layanan Kami</h2>
-          <p className="text-[#E5E5E5]/70 max-w-2xl mx-auto">Kami menyediakan berbagai layanan bantuan pengerjaan tugas akademikmu.</p>
+    <section id="layanan" className="bg-white px-4 py-14 sm:px-6 sm:py-20">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col justify-between gap-4 border-b border-[#DCE4EB] pb-6 md:flex-row md:items-end">
+          <div>
+            <h2 className="text-[clamp(1.5rem,2.5vw,2rem)] font-bold text-[#16324F]">
+              Katalog Layanan & Tarif
+            </h2>
+            <p className="mt-2 max-w-xl text-sm text-[#526277] sm:text-base">
+              Pilih kategori untuk meninjau tarif per kelompok fakultas sebelum melakukan simulasi.
+            </p>
+          </div>
+          <Link
+            href="/layanan"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#116471] hover:underline"
+          >
+            <span>Lihat semua kategori</span>
+            <ArrowRight aria-hidden="true" size={16} />
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {serviceCategories.map((cat, index) => (
-            <motion.div 
-              key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.2 }}
-              className="bg-[#14213D]/40 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:-translate-y-2 hover:border-[#FCA311]/30 transition-all duration-300 shadow-lg"
+        {dataUnavailable ? (
+          <div className="mt-8">
+            <DatabaseUnavailable dataLabel="Data layanan" />
+          </div>
+        ) : (
+          <div className="mt-8">
+            <div
+              role="tablist"
+              aria-label="Kategori layanan"
+              className="flex flex-wrap gap-2"
             >
-              <h3 className="text-xl font-bold text-[#FCA311] mb-2">{cat.kategori}</h3>
-              <p className="text-sm text-[#E5E5E5]/70 mb-6 pb-6 border-b border-white/10">{cat.deskripsi}</p>
-              
-              <ul className="space-y-4">
-                {cat.layanan.length === 0 ? (
-                  <li className="text-[#E5E5E5]/40 text-sm italic">Belum ada layanan.</li>
-                ) : (
-                  cat.layanan.map((item) => (
-                    <li key={item.id} className="flex items-start gap-3">
-                      <CheckCircle2 className="text-[#FCA311] shrink-0 mt-0.5" size={18} />
-                      <div>
-                        <h4 className="text-[#FFFFFF] text-sm font-medium">{item.namaLayanan}</h4>
-                        <span className="text-xs text-[#E5E5E5]/60">Rp {item.hargaDasar.toLocaleString('id-ID')}</span>
+              {CATEGORIES.map((cat) => {
+                const isSelected = activeTab === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setActiveTab(cat.key)}
+                    className={`min-h-11 rounded-xl border px-5 text-sm font-semibold transition-colors ${
+                      isSelected
+                        ? "border-[#16324F] bg-[#16324F] text-white"
+                        : "border-[#DCE4EB] bg-[#F7F8FA] text-[#172B40] hover:border-[#167D8D] hover:text-[#116471]"
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="mt-4 text-sm text-[#526277]">{activeMeta.description}</p>
+
+            {filteredItems.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-[#DCE4EB] bg-[#F7F8FA] p-6 text-sm text-[#526277]">
+                Belum ada layanan pada kategori ini.
+              </div>
+            ) : (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-[#DCE4EB] bg-white">
+                <div className="divide-y divide-[#DCE4EB]">
+                  {filteredItems.map((item) => {
+                    const soshumTarif = item.tarif?.find((t) => t.kelompok === "SOSHUM");
+                    const saintekTarif = item.tarif?.find((t) => t.kelompok === "SAINTEK");
+                    const unitSuffix = item.tipeHitung === "PER_SLIDE" ? "slide" : "lembar";
+                    const soshumPakets = (item.paket || []).filter((p) => p.kelompok === "SOSHUM");
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex flex-col justify-between gap-4 p-5 transition-colors hover:bg-[#F7F8FA] sm:flex-row sm:items-center"
+                      >
+                        <div className="max-w-xl">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <h3 className="text-base font-bold text-[#16324F]">{item.nama}</h3>
+                            <span className="rounded-md bg-[#E8F4F6] px-2.5 py-0.5 text-xs font-semibold text-[#116471]">
+                              {item.estimasiSelesai}
+                            </span>
+                          </div>
+                          {item.deskripsi && (
+                            <p className="mt-1.5 text-sm leading-relaxed text-[#526277]">
+                              {item.deskripsi}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end">
+                          <div className="text-left sm:text-right">
+                            {item.tipeHitung === "PER_PAKET" ? (
+                              <div className="space-y-0.5 text-xs">
+                                {soshumPakets.length > 0 ? (
+                                  soshumPakets.map((p) => (
+                                    <div key={p.id} className="text-[#172B40]">
+                                      <span className="text-[#526277]">{p.nama}:</span>{" "}
+                                      <span className="font-bold text-[#16324F]">
+                                        {formatRupiah(p.harga)}
+                                      </span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span className="font-semibold text-[#16324F]">Paket tetap</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-sm">
+                                <div className="font-bold text-[#16324F]">
+                                  Soshum {formatRupiah(soshumTarif?.hargaPerUnit || 0)} / {unitSuffix}
+                                </div>
+                                <div className="text-xs text-[#526277]">
+                                  Saintek {formatRupiah(saintekTarif?.hargaPerUnit || 0)} / {unitSuffix}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <Link
+                            href={`/simulasi?layanan=${item.id}`}
+                            className="inline-flex min-h-11 items-center rounded-xl border border-[#167D8D] bg-white px-4 text-xs font-bold text-[#116471] transition-colors hover:bg-[#16324F] hover:border-[#16324F] hover:text-white"
+                          >
+                            Simulasikan
+                          </Link>
+                        </div>
                       </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </motion.div>
-          ))}
-        </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

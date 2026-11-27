@@ -1,111 +1,106 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
-import { Monitor, BookOpen, PenTool, Star, Users, CheckCircle, ShieldCheck } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock } from "lucide-react";
 
 export default function Hero() {
   return (
-    // PERBAIKAN MUTLAK: Menggunakan overflow-hidden untuk memotong paksa elemen yang melebihi layar
-    <section id="beranda" className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6 pt-32 md:pt-40 pb-20 relative bg-[#000000] overflow-hidden w-full">
-      
-      {/* Efek Cahaya Emas Tipis (Ini biang keroknya, tapi sekarang sudah aman karena dibatasi overflow-hidden) */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] md:w-[700px] md:h-[700px] bg-[#FCA311]/10 rounded-full blur-[100px] md:blur-[130px] pointer-events-none" />
+    <section
+      id="beranda"
+      className="border-b border-[#DCE4EB] bg-[#F7F8FA] px-4 py-12 sm:px-6 sm:py-16 lg:py-20"
+    >
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="lg:col-span-7">
+          <h1 className="text-[clamp(1.875rem,3.6vw,3rem)] font-bold leading-[1.15] tracking-tight text-[#16324F]">
+            Simulasi harga tugas akademik yang jelas sebelum kamu memesan.
+          </h1>
 
-      {/* --- ANIMASI BACKGROUND --- */}
-      <motion.div animate={{ y: [0, -20, 0], rotate: [0, 5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className="absolute top-1/4 left-[5%] md:left-[15%] text-[#FCA311]/10 hidden md:block">
-        <Monitor size={80} />
-      </motion.div>
-      <motion.div animate={{ y: [0, 25, 0], rotate: [0, -10, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="absolute top-1/3 right-[5%] md:right-[15%] text-[#FCA311]/10 hidden md:block">
-        <BookOpen size={70} />
-      </motion.div>
-      <motion.div animate={{ y: [0, -15, 0], rotate: [0, 15, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }} className="absolute bottom-1/4 left-[10%] text-[#FCA311]/10 hidden md:block">
-        <PenTool size={55} />
-      </motion.div>
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-[#526277] sm:text-lg">
+            Pilih fakultas Saintek atau Soshum, tentukan layanan atau paket, rapikan deskripsi
+            tugas, lalu kirim pesanan langsung ke WhatsApp admin dalam hitungan detik.
+          </p>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-5xl flex flex-col items-center text-center"
-      >
-        
-        {/* --- HOOK PALING MENOHOK --- */}
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="flex items-center justify-center gap-2 bg-[#14213D]/80 border border-[#FCA311]/50 px-3 md:px-5 py-2 md:py-2.5 rounded-full mb-8 shadow-[0_0_20px_rgba(252,163,17,0.25)] backdrop-blur-md w-fit max-w-[95vw]"
-        >
-          <CheckCircle className="text-[#FCA311] animate-pulse flex-shrink-0" size={16} />
-          <span className="text-[#FCA311] text-[10px] sm:text-xs md:text-base font-extrabold tracking-wide uppercase truncate">
-            Garansi Revisi Gratis 1x Dalam 24 Jam!
-          </span>
-        </motion.div>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link href="/simulasi" className="btn-primary px-6 py-3">
+              <span>Hitung Harga Sekarang</span>
+              <ArrowRight aria-hidden="true" size={17} />
+            </Link>
+            <Link href="/layanan" className="btn-secondary px-6 py-3">
+              Lihat Katalog Layanan
+            </Link>
+          </div>
 
-        {/* --- TEKS UTAMA --- */}
-        <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold mb-6 text-[#FFFFFF] leading-tight break-words w-full">
-          Selesaikan Tugasmu dengan <br className="hidden md:block" />
-          <span className="text-[#FCA311]">
-            Cepat & Profesional
-          </span>
-        </h1>
-        <p className="text-sm sm:text-lg md:text-xl text-[#E5E5E5]/80 mb-10 max-w-2xl mx-auto leading-relaxed px-2">
-          Platform jasa pengerjaan tugas nomor satu. Solusi aman, tepat waktu, dan berkualitas untuk siswa hingga mahasiswa.
-        </p>
-        
-        {/* --- TOMBOL CTA --- */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 w-full px-4">
-          <Link href="#cara-order" className="w-full sm:w-auto bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] font-bold py-3.5 px-8 rounded-full transition-all hover:scale-105 shadow-[0_0_20px_rgba(252,163,17,0.3)]">
-            Hitung Estimasi Harga
-          </Link>
-          <Link href="#layanan" className="w-full sm:w-auto bg-[#14213D]/50 hover:bg-[#14213D] border border-[#FCA311]/30 text-[#FFFFFF] font-semibold py-3.5 px-8 rounded-full transition-all backdrop-blur-sm">
-            Lihat Layanan
-          </Link>
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-medium text-[#526277]">
+            <span className="inline-flex items-center gap-2">
+              <Clock aria-hidden="true" size={16} className="text-[#116471]" />
+              <span>Estimasi standar 1x24 jam</span>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle2 aria-hidden="true" size={16} className="text-[#116471]" />
+              <span>Tanpa biaya kilat tambahan</span>
+            </span>
+          </div>
         </div>
 
-        {/* --- CARD SOCIAL PROOF --- */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.8 }}
-          className="w-full max-w-4xl bg-[#14213D]/40 backdrop-blur-md border border-[#E5E5E5]/10 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[#FCA311]/50 to-transparent"></div>
-          <div className="flex items-center gap-4 text-left">
-            <div>
-              <div className="flex gap-1 mb-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={16} className="text-[#FCA311] fill-[#FCA311]" />
-                ))}
+        <div className="lg:col-span-5">
+          <div className="surface-card overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#DCE4EB] bg-[#16324F] px-5 py-4 text-white">
+              <div>
+                <div className="text-xs font-medium text-white/85">Ringkasan Tarif Dasar</div>
+                <div className="text-base font-bold">Soshum & Saintek</div>
               </div>
-              <p className="text-[#FFFFFF] font-bold text-xl leading-tight">
-                1,200+ <span className="text-[#E5E5E5]/70 text-sm font-normal">Klien Terbantu</span>
-              </p>
+              <span className="rounded-md bg-[#F4B860] px-2.5 py-1 text-xs font-bold text-[#16324F]">
+                Angka Pasti
+              </span>
+            </div>
+
+            <div className="divide-y divide-[#DCE4EB] px-5 py-2 text-sm">
+              <div className="flex items-center justify-between gap-4 py-3.5">
+                <div>
+                  <div className="font-semibold text-[#172B40]">Artikel, Paper, Makalah</div>
+                  <div className="text-xs text-[#526277]">Hitungan per lembar</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-bold text-[#16324F]">Rp3.000 - Rp4.000</div>
+                  <div className="text-xs font-medium text-[#116471]">Soshum / Saintek</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 py-3.5">
+                <div>
+                  <div className="font-semibold text-[#172B40]">Slide Presentasi (PPT)</div>
+                  <div className="text-xs text-[#526277]">Hitungan per slide</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-bold text-[#16324F]">Rp3.000 - Rp4.000</div>
+                  <div className="text-xs font-medium text-[#116471]">Soshum / Saintek</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 py-3.5">
+                <div>
+                  <div className="font-semibold text-[#172B40]">Skripsi Sempro & Full</div>
+                  <div className="text-xs text-[#526277]">Bab 1-3 atau Bab 1-5</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-bold text-[#16324F]">Rp2jt / Rp5jt</div>
+                  <div className="text-xs font-medium text-[#116471]">Harga paket total</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-[#DCE4EB] bg-[#F7F8FA] px-5 py-3.5">
+              <Link
+                href="/simulasi"
+                className="flex min-h-11 items-center justify-between text-sm font-bold text-[#116471] hover:underline"
+              >
+                <span>Buka kalkulator simulasi lengkap</span>
+                <ArrowRight aria-hidden="true" size={16} />
+              </Link>
             </div>
           </div>
-          <div className="hidden md:block w-px h-12 bg-[#E5E5E5]/10"></div>
-          <div className="flex items-center gap-3">
-            <div className="bg-[#FCA311]/10 p-2.5 rounded-lg border border-[#FCA311]/20">
-              <Users className="text-[#FCA311]" size={22} />
-            </div>
-            <div className="text-left">
-              <p className="text-[#FFFFFF] font-bold text-base">100% Rahasia</p>
-              <p className="text-[#E5E5E5]/70 text-xs">Data & Privasi Aman</p>
-            </div>
-          </div>
-          <div className="hidden md:block w-px h-12 bg-[#E5E5E5]/10"></div>
-          <div className="flex items-center gap-6 opacity-60 hover:opacity-100 transition-opacity duration-300">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck size={20} className="text-[#FCA311]" />
-              <span className="text-[#FFFFFF] font-bold text-sm tracking-wider uppercase">Terverifikasi</span>
-            </div>
-            <div className="flex items-center gap-1.5 hidden sm:flex">
-              <span className="text-[#FFFFFF] font-black text-lg italic tracking-tighter">TopRated.</span>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </section>
   );
 }

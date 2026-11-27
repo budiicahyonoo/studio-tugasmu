@@ -1,42 +1,91 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import DatabaseUnavailable from "../shared/DatabaseUnavailable";
 
-export default function Portfolio({ portfolioDb = [] }) {
+export default function Portfolio({
+  portfolioDb = [],
+  dataUnavailable = false,
+  isStandalonePage = false,
+}) {
+  const HeadingTag = isStandalonePage ? "h1" : "h2";
+
   return (
-    <section id="portfolio" className="py-24 px-6 relative bg-[#14213D] border-t border-b border-white/5">
-      <div className="container mx-auto max-w-6xl relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#FFFFFF] mb-4">
-            Portfolio <span className="text-[#FCA311]">Karya</span>
-          </h2>
-          <p className="text-[#E5E5E5]/70 max-w-2xl mx-auto">Hasil karya terbaik yang telah diselesaikan oleh tim kami.</p>
+    <section
+      id="portfolio"
+      className="border-y border-[#DCE4EB] bg-[#F7F8FA] px-4 py-14 sm:px-6 sm:py-20"
+    >
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <HeadingTag
+              className={
+                isStandalonePage
+                  ? "text-[clamp(1.875rem,3vw,2.5rem)] font-bold text-[#16324F]"
+                  : "text-[clamp(1.5rem,2.5vw,2rem)] font-bold text-[#16324F]"
+              }
+            >
+              Portofolio Karya
+            </HeadingTag>
+            <p className="mt-2 max-w-xl text-sm text-[#526277] sm:text-base">
+              Contoh hasil pengerjaan pada kategori umum, khusus, dan PKL.
+            </p>
+          </div>
+          {!isStandalonePage && (
+            <Link
+              href="/portofolio"
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[#116471] hover:underline"
+            >
+              <span>Lihat semua portofolio</span>
+              <ArrowRight aria-hidden="true" size={16} />
+            </Link>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {portfolioDb.map((item, index) => (
-            <motion.div 
-              key={item.id} 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              whileInView={{ opacity: 1, scale: 1 }} 
-              viewport={{ once: true }} 
-              transition={{ delay: index * 0.1 }} 
-              className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl group overflow-hidden hover:-translate-y-2 hover:border-[#FCA311]/50 transition-all duration-500 shadow-xl"
+        {dataUnavailable ? (
+          <DatabaseUnavailable dataLabel="Data portofolio" />
+        ) : portfolioDb.length === 0 ? (
+          <div className="surface-card p-8 text-center">
+            <p className="text-sm text-[#526277]">
+              Belum ada karya yang ditampilkan saat ini.
+            </p>
+            <Link
+              href="/simulasi"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-[#116471] hover:underline"
             >
-              <div className="h-48 w-full relative overflow-hidden bg-black">
-                <img src={item.imageUrl} alt={item.judul} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80" />
-                <div className="absolute inset-0 bg-[#FCA311]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                   <ExternalLink className="text-[#FCA311] w-8 h-8" />
+              Mulai simulasi harga
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {portfolioDb.map((item) => (
+              <article
+                key={item.id}
+                className="surface-card overflow-hidden transition-transform duration-200 hover:-translate-y-0.5"
+              >
+                <div className="aspect-[16/10] w-full overflow-hidden bg-[#EDF2F7]">
+                  <img
+                    src={item.imageUrl}
+                    width={640}
+                    height={400}
+                    alt={item.judul}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
                 </div>
-              </div>
-              <div className="p-5 border-t border-white/10 bg-black/20">
-                <span className="text-[10px] font-bold text-black bg-[#FCA311] px-2 py-1 rounded-md mb-3 inline-block uppercase">{item.kategori}</span>
-                <h3 className="text-[#FFFFFF] font-bold text-lg">{item.judul}</h3>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="border-t border-[#DCE4EB] p-5">
+                  <span className="inline-block rounded-md bg-[#E8F4F6] px-2.5 py-1 text-xs font-semibold text-[#116471]">
+                    {item.kategori}
+                  </span>
+                  <h3 className="mt-2.5 text-base font-bold text-[#16324F]">
+                    {item.judul}
+                  </h3>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

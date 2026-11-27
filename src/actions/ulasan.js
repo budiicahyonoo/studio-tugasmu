@@ -1,30 +1,47 @@
 "use server";
 
-import { prisma } from "../lib/prisma";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { prisma } from "../lib/prisma";
+import { requireAdminSession } from "../lib/auth";
 
-// Fungsi untuk pengunjung submit ulasan
+const ulasanSchema = z.object({
+  nama: z.string().trim().min(2, "Nama minimal 2 karakter.").max(80),
+  role: z.string().trim().min(2, "Peran minimal 2 karakter.").max(80),
+  teks: z.string().trim().min(10, "Ulasan minimal 10 karakter.").max(1000),
+});
+
 export async function tambahUlasan(formData) {
-  const nama = formData.get("nama");
-  const role = formData.get("role");
-  const teks = formData.get("teks");
+  const parsed = ulasanSchema.safeParse({
+    nama: formData.get("nama"),
+    role: formData.get("role"),
+    teks: formData.get("teks"),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message || "Data ulasan tidak valid.",
+    };
+  }
 
   await prisma.ulasan.create({
     data: {
-      nama,
-      role,
-      teks,
-      rating: 5, // Default kita set bintang 5
+      ...parsed.data,
+      rating: 5,
+      status: "PENDING",
     },
   });
 
-  revalidatePath("/"); // Refresh halaman depan agar data terupdate
+  revalidatePath("/");
+  revalidatePath("/admin/dashboard");
+  return { ok: true };
 }
 
-// Fungsi untuk Admin menyetujui ulasan
 export async function setujuiUlasan(formData) {
-  const id = formData.get("id");
-  
+  await requireAdminSession();
+  const id = String(formData.get("id") || "");
+
   await prisma.ulasan.update({
     where: { id },
     data: { status: "APPROVED" },
@@ -32,16 +49,18 @@ export async function setujuiUlasan(formData) {
 
   revalidatePath("/admin/dashboard");
   revalidatePath("/");
+  return { ok: true };
 }
 
-// Fungsi untuk Admin menghapus/menolak ulasan
 export async function hapusUlasan(formData) {
-  const id = formData.get("id");
-  
+  await requireAdminSession();
+  const id = String(formData.get("id") || "");
+
   await prisma.ulasan.delete({
     where: { id },
   });
 
   revalidatePath("/admin/dashboard");
   revalidatePath("/");
+  return { ok: true };
 }

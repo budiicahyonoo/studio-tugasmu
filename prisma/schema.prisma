@@ -9,40 +9,210 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Tabel Layanan / Harga
-model Layanan {
-  id          String   @id @default(cuid())
-  kategori    String   // Contoh: "Laporan", "Soal", "Projek"
-  namaLayanan String   // Contoh: "Makalah Akademik", "Matematika"
-  hargaDasar  Int      // Contoh: 3000, 30000, 150000
-  deskripsi   String?  // Info tambahan opsional
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum Kelompok {
+  SAINTEK
+  SOSHUM
 }
 
-// Tabel Ulasan (Review)
-model Ulasan {
-  id        String   @id @default(cuid())
-  nama      String
-  role      String   // Contoh: Mahasiswa S1
-  teks      String
-  rating    Int      @default(5)
-  status    StatusUlasan @default(PENDING) // Default pending, nunggu acc admin
-  createdAt DateTime @default(now())
+enum KategoriLayanan {
+  UMUM
+  KHUSUS
+  PKL
 }
 
-// Enum untuk status ulasan
+enum TipeHitung {
+  PER_LEMBAR
+  PER_SLIDE
+  PER_PAKET
+}
+
+enum StatusPesanan {
+  BARU
+  DIPROSES
+  SELESAI
+  DIBATALKAN
+  MENUNGGU_PEMBAYARAN
+  MENUNGGU_VERIFIKASI
+  DIBAYAR
+  KEDALUWARSA
+}
+
+enum StatusPembayaran {
+  MENUNGGU_PEMBAYARAN
+  MENUNGGU_VERIFIKASI
+  DIBAYAR
+  DITOLAK
+  KEDALUWARSA
+}
+
 enum StatusUlasan {
   PENDING
   APPROVED
   REJECTED
 }
 
-// Tabel Portfolio
+model Fakultas {
+  id        String    @id @default(cuid())
+  nama      String    @unique
+  kelompok  Kelompok
+  urutan    Int       @default(0)
+  aktif     Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  pesanan   Pesanan[]
+}
+
+model Layanan {
+  id              String          @id @default(cuid())
+  nama            String          @unique
+  kategori        KategoriLayanan
+  tipeHitung      TipeHitung
+  estimasiSelesai String          @default("1x24 jam")
+  deskripsi       String?
+  urutan          Int             @default(0)
+  aktif           Boolean         @default(true)
+  tarif           Tarif[]
+  paket           Paket[]
+  benefit         Benefit[]
+  pesanan         Pesanan[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model Tarif {
+  id           String   @id @default(cuid())
+  layananId    String
+  kelompok     Kelompok
+  hargaPerUnit Int      // Rupiah bulat, bukan Float
+  layanan      Layanan  @relation(fields: [layananId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([layananId, kelompok])
+}
+
+model Paket {
+  id        String    @id @default(cuid())
+  layananId String
+  kelompok  Kelompok
+  nama      String
+  deskripsi String?
+  harga     Int       // Rupiah bulat, harga total
+  urutan    Int       @default(0)
+  layanan   Layanan   @relation(fields: [layananId], references: [id], onDelete: Cascade)
+  benefit   Benefit[]
+  pesanan   Pesanan[]
+  updatedAt DateTime  @updatedAt
+
+  @@unique([layananId, kelompok, nama])
+}
+
+model Benefit {
+  id        String   @id @default(cuid())
+  layananId String?
+  paketId   String?
+  teks      String
+  urutan    Int      @default(0)
+  layanan   Layanan? @relation(fields: [layananId], references: [id], onDelete: Cascade)
+  paket     Paket?   @relation(fields: [paketId], references: [id], onDelete: Cascade)
+}
+
+model RiwayatHarga {
+  id          String   @id @default(cuid())
+  entitas     String   // "TARIF" | "PAKET"
+  referensiId String
+  keterangan  String
+  nilaiLama   Int
+  nilaiBaru   Int
+  diubahOleh  String
+  waktu       DateTime @default(now())
+
+  @@index([waktu])
+}
+
+model Pesanan {
+  id            String        @id @default(cuid())
+  kodePesanan   String        @unique
+  nama          String
+  fakultasId    String
+  layananId     String
+  paketId       String?
+  judul         String
+  deskripsiAsli String
+  deskripsiAI   String?
+  jumlah        Int?
+  total         Int
+  status        StatusPesanan @default(BARU)
+  catatanAdmin  String?
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  fakultas   Fakultas    @relation(fields: [fakultasId], references: [id])
+  layanan    Layanan     @relation(fields: [layananId], references: [id])
+  paket      Paket?      @relation(fields: [paketId], references: [id])
+  pembayaran Pembayaran?
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Pembayaran {
+  id                 String           @id @default(cuid())
+  pesananId          String           @unique
+  nominal            Int
+  dokumenUrl         String?
+  dokumenNama        String?
+  buktiPembayaranUrl String?
+  hasilPdfUrl        String?
+  status             StatusPembayaran @default(MENUNGGU_PEMBAYARAN)
+  diverifikasiOleh   String?
+  dibayarPada        DateTime?
+  kedaluwarsaPada    DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  pesanan Pesanan @relation(fields: [pesananId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model Pengaturan {
+  id               String   @id @default("default")
+  nomorWhatsApp    String   @default("6283151195556")
+  qrisImageUrl     String?
+  namaRekening     String?
+  syaratKetentuan  String   @default("")
+  kebijakanPrivasi String   @default("")
+  instagramUrl     String   @default("https://www.instagram.com/studiotugasmu19/")
+  emailKontak      String   @default("halo@studiotugasmu.com")
+  calendlyUrl      String   @default("https://calendly.com/budicahyono-dev/new-meeting")
+  updatedAt        DateTime @updatedAt
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  nama         String   @default("Admin Tugasmu19")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Ulasan {
+  id        String       @id @default(cuid())
+  nama      String
+  role      String
+  teks      String
+  rating    Int          @default(5)
+  status    StatusUlasan @default(PENDING)
+  createdAt DateTime     @default(now())
+}
+
 model Portfolio {
   id        String   @id @default(cuid())
   judul     String
   kategori  String
-  imageUrl  String   // Link gambar (bisa dari Vercel Blob / Cloudinary / dll)
+  imageUrl  String
   createdAt DateTime @default(now())
 }

@@ -1,26 +1,27 @@
 import { NextResponse } from "next/server";
+import { verifySessionToken } from "./lib/sessionToken";
 
-export function middleware(request) {
+export async function middleware(request) {
   const path = request.nextUrl.pathname;
   const isLoginPage = path === "/admin/login";
-  
-  // Mengecek apakah pengunjung bawa tiket (cookie)
-  const hasToken = request.cookies.get("admin_session")?.value || "";
+  const token = request.cookies.get("admin_session")?.value;
+  const session = token ? await verifySessionToken(token) : null;
 
-  // Jika mencoba masuk ke dashboard tanpa tiket, usir ke login
-  if (path.startsWith("/admin/dashboard") && !hasToken) {
-    return NextResponse.redirect(new URL("/admin/login", request.nextUrl));
+  if (path.startsWith("/admin/dashboard") && !session) {
+    const response = NextResponse.redirect(new URL("/admin/login", request.nextUrl));
+    if (token) {
+      response.cookies.delete("admin_session");
+    }
+    return response;
   }
 
-  // Jika sudah login tapi mencoba buka halaman login lagi, arahkan ke dashboard
-  if (isLoginPage && hasToken) {
+  if (isLoginPage && session) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.nextUrl));
   }
 
   return NextResponse.next();
 }
 
-// Menentukan rute mana saja yang dijaga satpam ini
 export const config = {
   matcher: ["/admin/dashboard/:path*", "/admin/login"],
 };

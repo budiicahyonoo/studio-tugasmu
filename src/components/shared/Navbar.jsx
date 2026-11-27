@@ -1,109 +1,243 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Video, X, Menu, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { ChevronDown, MessageCircle, Menu, X } from "lucide-react";
 
-export default function Navbar() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+export default function Navbar({
+  nomorWhatsApp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6283151195556",
+}) {
+  const pathname = usePathname();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const mobileButtonRef = useRef(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsDropdownOpen(false);
+        if (isMobileMenuOpen) {
+          setIsMobileMenuOpen(false);
+          mobileButtonRef.current?.focus();
+        }
+      }
+    };
 
-  const waLink = `https://wa.me/6283151195556?text=${encodeURIComponent("Halo Admin Studio Tugasmu!\n\nNama saya : ...\nSaya ingin konsultasi mengenai : ...")}`;
-  const calendlyLink = "https://calendly.com/budicahyono-dev/new-meeting";
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileMenuOpen]);
 
-  const navLinks = [
-    { name: "Beranda", href: "#beranda" },
-    { name: "Cara Order", href: "#cara-order" },
-    { name: "Layanan", href: "#layanan" },
-    { name: "Portfolio", href: "#portfolio" },
-    { name: "Ulasan", href: "#ulasan" },
+  const cleanWa = String(nomorWhatsApp).replace(/[^0-9]/g, "");
+  const waHref = `https://wa.me/${cleanWa}?text=${encodeURIComponent(
+    "Halo Admin Studio Tugasmu, saya ingin berkonsultasi mengenai layanan tugas akademik."
+  )}`;
+
+  const layananSubmenu = [
+    { label: "Umum (Artikel, Paper, Makalah, PPT)", href: "/layanan?kategori=UMUM" },
+    { label: "Khusus (Skripsi, Thesis, Projek)", href: "/layanan?kategori=KHUSUS" },
+    { label: "PKL (Praktikum, Laporan PKL, Observasi)", href: "/layanan?kategori=PKL" },
   ];
 
+  const linkClass = (href) => {
+    const active = pathname === href;
+    return `inline-flex min-h-11 items-center rounded-lg px-3 text-sm transition-colors ${
+      active
+        ? "bg-[#EDF2F7] font-bold text-[#16324F]"
+        : "font-medium text-[#172B40] hover:bg-[#F7F8FA] hover:text-[#116471]"
+    }`;
+  };
+
   return (
-    <>
-      {/* NAVBAR: Selalu menyala menggunakan bg-[#14213D]/70 dan backdrop-blur-xl sejak awal */}
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 rounded-b-[2rem] md:rounded-b-[3rem] bg-[#14213D]/70 backdrop-blur-xl border-b border-[#FCA311]/20 shadow-2xl py-3 md:py-4`}>
-        <div className="w-full max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
-          
-          {/* Logo Gambar (Tetap Dipertahankan) */}
-          <Link href="/" className="flex-shrink-0 z-50" onClick={() => setIsMenuOpen(false)}>
-            <img src="/logo.png" alt="Logo" className="h-7 md:h-10 w-auto object-contain" />
+    <header className="sticky top-0 z-50 border-b border-[#DCE4EB] bg-white">
+      <nav
+        aria-label="Navigasi utama"
+        className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6"
+      >
+        <Link
+          href="/"
+          className="inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <Image
+            src="/logo.png"
+            width={332}
+            height={211}
+            alt="Studio Tugasmu"
+            priority
+            className="h-8 w-auto object-contain sm:h-9"
+          />
+        </Link>
+
+        <div className="hidden items-center gap-1 lg:flex">
+          <Link href="/" className={linkClass("/")}>
+            Beranda
           </Link>
 
-          {/* Menu Desktop */}
-          <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-[#E5E5E5]">
-            {navLinks.map((link) => (
-              <Link key={link.name} href={link.href} className="hover:text-[#FCA311] transition-colors">
-                {link.name}
-              </Link>
-            ))}
-          </div>
+          <Link
+            href="/simulasi"
+            className="btn-primary mx-1 px-4 py-2"
+          >
+            Simulasi Harga
+          </Link>
 
-          {/* CTA Desktop */}
-          <div className="hidden md:block flex-shrink-0">
-            <button onClick={() => setIsModalOpen(true)} className="bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg">
-              Mulai Konsultasi
+          <div ref={dropdownRef} className="relative">
+            <button
+              type="button"
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="true"
+              onClick={() => setIsDropdownOpen((open) => !open)}
+              className={`inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm transition-colors ${
+                pathname === "/layanan"
+                  ? "bg-[#EDF2F7] font-bold text-[#16324F]"
+                  : "font-medium text-[#172B40] hover:bg-[#F7F8FA] hover:text-[#116471]"
+              }`}
+            >
+              <span>Layanan</span>
+              <ChevronDown
+                aria-hidden="true"
+                size={16}
+                className={`transition-transform duration-150 ${isDropdownOpen ? "rotate-180" : ""}`}
+              />
             </button>
-          </div>
 
-          {/* Tombol Burger Mobile */}
-          <div className="md:hidden flex items-center z-50">
-             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-[#FCA311] p-1">
-                {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
-              </button>
-          </div>
-        </div>
-
-        {/* ISI MENU BURGER */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="md:hidden overflow-hidden bg-[#14213D]/90 backdrop-blur-xl">
-              <div className="flex flex-col px-8 py-6 space-y-4">
-                {navLinks.map((link) => (
-                  <Link key={link.name} href={link.href} onClick={() => setIsMenuOpen(false)} className="flex justify-between items-center text-[#E5E5E5] text-lg font-medium border-b border-[#E5E5E5]/10 pb-4">
-                    {link.name} <ChevronRight size={20} className="text-[#FCA311]" />
+            {isDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 w-72 rounded-xl border border-[#DCE4EB] bg-white p-2 shadow-lg">
+                {layananSubmenu.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-[#172B40] transition-colors hover:bg-[#E8F4F6] hover:text-[#116471]"
+                  >
+                    {item.label}
                   </Link>
                 ))}
-                <button onClick={() => { setIsModalOpen(true); setIsMenuOpen(false); }} className="w-full bg-[#FCA311] text-[#000000] py-4 rounded-2xl font-bold mt-4 shadow-xl">
-                  Konsultasi Sekarang
-                </button>
+                <Link
+                  href="/layanan"
+                  onClick={() => setIsDropdownOpen(false)}
+                  className="mt-1 flex min-h-11 items-center rounded-lg border-t border-[#DCE4EB] px-3 py-2 text-sm font-bold text-[#16324F] hover:bg-[#F7F8FA]"
+                >
+                  Lihat semua layanan
+                </Link>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </div>
+
+          <Link href="/turnitin" className={linkClass("/turnitin")}>
+            Cek Turnitin
+          </Link>
+
+          <Link href="/portofolio" className={linkClass("/portofolio")}>
+            Portofolio
+          </Link>
+
+          <Link href="/#ulasan" className={linkClass("/#ulasan")}>
+            Ulasan
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary hidden px-3.5 py-2 sm:inline-flex"
+          >
+            <MessageCircle aria-hidden="true" size={17} />
+            <span>WhatsApp</span>
+          </a>
+
+          <button
+            ref={mobileButtonRef}
+            type="button"
+            aria-label={isMobileMenuOpen ? "Tutup menu navigasi" : "Buka menu navigasi"}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-nav-drawer"
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#DCE4EB] px-3 text-sm font-semibold text-[#16324F] hover:bg-[#F7F8FA] lg:hidden"
+          >
+            {isMobileMenuOpen ? (
+              <X aria-hidden="true" size={18} />
+            ) : (
+              <Menu aria-hidden="true" size={18} />
+            )}
+            <span>Menu</span>
+          </button>
+        </div>
       </nav>
 
-      {/* Modal Konsultasi */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-[#000000]/80 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-[#14213D] border border-[#FCA311]/30 rounded-3xl p-8 w-[95%] max-w-md z-10">
-              <h3 className="text-2xl font-bold text-white mb-2">Pilih Jalur Diskusi</h3>
-              <div className="flex flex-col gap-4 mt-6">
-                <a href={waLink} target="_blank" className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#FCA311] transition-all">
-                  <MessageCircle className="text-[#25D366]" size={28} />
-                  <span className="text-white font-bold">WhatsApp Chat</span>
-                </a>
-                <a href={calendlyLink} target="_blank" className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 hover:border-[#FCA311] transition-all">
-                  <Video className="text-[#4285F4]" size={28} />
-                  <span className="text-white font-bold">Google Meet</span>
-                </a>
-              </div>
-            </motion.div>
+      {isMobileMenuOpen && (
+        <div
+          id="mobile-nav-drawer"
+          className="border-t border-[#DCE4EB] bg-white px-4 py-4 lg:hidden"
+        >
+          <div className="flex flex-col gap-1.5">
+            <Link
+              href="/simulasi"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="btn-primary mb-1 w-full"
+            >
+              Simulasi Harga
+            </Link>
+            <Link
+              href="/"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-[#172B40] hover:bg-[#F7F8FA]"
+            >
+              Beranda
+            </Link>
+            <Link
+              href="/layanan"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-[#172B40] hover:bg-[#F7F8FA]"
+            >
+              Layanan (Umum, Khusus, PKL)
+            </Link>
+            <Link
+              href="/turnitin"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-[#172B40] hover:bg-[#F7F8FA]"
+            >
+              Cek Turnitin (QRIS)
+            </Link>
+            <Link
+              href="/portofolio"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-[#172B40] hover:bg-[#F7F8FA]"
+            >
+              Portofolio
+            </Link>
+            <Link
+              href="/#ulasan"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-[#172B40] hover:bg-[#F7F8FA]"
+            >
+              Ulasan
+            </Link>
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary mt-2 w-full"
+            >
+              <MessageCircle aria-hidden="true" size={17} />
+              <span>Chat WhatsApp Admin</span>
+            </a>
           </div>
-        )}
-      </AnimatePresence>
-    </>
+        </div>
+      )}
+    </header>
   );
 }

@@ -1,42 +1,60 @@
 import Navbar from "../components/shared/Navbar";
 import Footer from "../components/shared/Footer";
 import Hero from "../components/sections/Hero";
-import Calculator from "../components/sections/Calculator";
 import Services from "../components/sections/Services";
 import Portfolio from "../components/sections/Portfolio";
 import Reviews from "../components/sections/Reviews";
 import { prisma } from "../lib/prisma";
+import { getPublicCatalogData } from "../lib/publicData";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const layananDariDb = await prisma.layanan.findMany({
-    orderBy: { createdAt: "asc" }
-  });
+  const { layanan, pengaturan, dataUnavailable: catalogUnavailable } =
+    await getPublicCatalogData();
 
-  const ulasanDariDb = await prisma.ulasan.findMany({
-    where: { status: "APPROVED" },
-    orderBy: { createdAt: "desc" }
-  });
-  
-  const portfolioDariDb = await prisma.portfolio.findMany({ 
-    orderBy: { createdAt: "desc" } 
-  });
+  let ulasanDariDb = [];
+  let portfolioDariDb = [];
+  let extraUnavailable = false;
+
+  try {
+    [ulasanDariDb, portfolioDariDb] = await Promise.all([
+      prisma.ulasan.findMany({
+        where: { status: "APPROVED" },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      prisma.portfolio.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+    ]);
+  } catch (error) {
+    console.error("Gagal memuat ulasan atau portofolio:", error);
+    extraUnavailable = true;
+  }
 
   return (
-    // PENGUNCI LAPIS KEDUA: w-full, max-w-[100vw], overflow-x-hidden
-    <div className="flex flex-col min-h-screen bg-[#000000] w-full max-w-[100vw] overflow-x-hidden">
-      <Navbar />
-      
-      <main className="flex-grow relative z-10 w-full">
+    <div className="flex min-h-screen flex-col bg-white">
+      <a
+        href="#main-content"
+        className="sr-only fixed left-4 top-4 z-[70] rounded-lg bg-white px-4 py-3 font-semibold text-[#16324F] shadow-lg focus:not-sr-only"
+      >
+        Lewati ke konten utama
+      </a>
+      <Navbar nomorWhatsApp={pengaturan.nomorWhatsApp} />
+
+      <main id="main-content" tabIndex="-1" className="w-full flex-grow">
         <Hero />
-        <Calculator />
-        <Services layananDb={layananDariDb} />
-        <Portfolio portfolioDb={portfolioDariDb} />
-        <Reviews ulasanDb={ulasanDariDb} />
+        <Services layananDb={layanan} dataUnavailable={catalogUnavailable} />
+        <Portfolio portfolioDb={portfolioDariDb} dataUnavailable={extraUnavailable} />
+        <Reviews ulasanDb={ulasanDariDb} dataUnavailable={extraUnavailable} />
       </main>
 
-      <Footer />
+      <Footer
+        instagramUrl={pengaturan.instagramUrl}
+        emailKontak={pengaturan.emailKontak}
+      />
     </div>
   );
 }

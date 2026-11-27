@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { FileText, HelpCircle, Briefcase, Send, Calculator as CalcIcon } from "lucide-react";
 import { jsPDF } from "jspdf"; 
+import { calculateEstimate } from "../../lib/calculateEstimate";
 
 export default function Calculator() {
   const [jenjang, setJenjang] = useState("Siswa");
@@ -13,22 +13,7 @@ export default function Calculator() {
   const [urgensi, setUrgensi] = useState("Normal (2 Hari)");
   const [paket, setPaket] = useState("Basic");
 
-  const [totalHarga, setTotalHarga] = useState(0);
-
-  useEffect(() => {
-    let harga = 0;
-    const baseHarga = jenjang === "Siswa" ? 3000 : 5000;
-
-    if (tipe === "Laporan") {
-      harga = baseHarga * halaman;
-    } else if (tipe === "Soal") {
-      const hargaSoal = jenjang === "Siswa" ? 30000 : 50000;
-      harga = urgensi === "Kilat (1 Hari)" ? hargaSoal * 1.25 : hargaSoal;
-    } else if (tipe === "Projek") {
-      harga = paket === "Basic" ? 150000 : paket === "Pro" ? 350000 : 700000;
-    }
-    setTotalHarga(harga);
-  }, [jenjang, tipe, halaman, urgensi, paket]);
+  const totalHarga = calculateEstimate({ jenjang, tipe, halaman, urgensi, paket });
 
   const handleOrder = () => {
     const rincian = tipe === 'Laporan' ? `${halaman} Halaman` : tipe === 'Soal' ? urgensi : paket;
@@ -39,7 +24,7 @@ export default function Calculator() {
 
     const doc = new jsPDF();
     doc.setFontSize(20);
-    doc.setTextColor(252, 163, 17);
+    doc.setTextColor(23, 105, 170);
     doc.text("INVOICE ESTIMASI - STUDIO TUGASMU", 20, 20);
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
@@ -61,56 +46,64 @@ export default function Calculator() {
   };
 
   return (
-    <section id="cara-order" className="py-24 px-6 relative bg-[#14213D] border-t border-b border-white/5">
+    <section id="cara-order" className="relative border-y border-[#D7E0EB] bg-[#F4F8FC] px-5 py-20 sm:px-6 md:py-24">
       <div className="container mx-auto max-w-6xl relative z-10">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#FFFFFF] mb-4 flex items-center justify-center gap-3">
-            <CalcIcon className="text-[#FCA311]" size={36} />
-            Simulasi & Pemesanan
+          <h2 className="mb-4 flex items-center justify-center gap-3 text-3xl font-bold text-[#15243B] md:text-4xl">
+            <CalcIcon aria-hidden="true" className="text-[#1769AA]" size={32} />
+            Simulasi biaya
           </h2>
-          <p className="text-[#E5E5E5]/70">Hitung estimasi biayamu transparan di depan, lalu pesan via WhatsApp.</p>
+          <p className="text-[#44546A]">Pilih kebutuhan tugas untuk melihat estimasi biaya, lalu lanjutkan konsultasi melalui WhatsApp.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          <motion.div 
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="lg:col-span-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8 shadow-xl"
-          >
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-[#E5E5E5] mb-3">Jenjang Pendidikan</label>
-              <div className="flex gap-4">
+          <div className="lg:col-span-3 rounded-2xl border border-[#D7E0EB] bg-white/80 p-6 shadow-xl backdrop-blur-md md:p-8">
+            <fieldset className="mb-6">
+              <legend className="mb-3 text-sm font-medium text-[#15243B]">Jenjang pendidikan</legend>
+              <div className="flex flex-wrap gap-3">
                 {["Siswa", "Mahasiswa"].map((item) => (
-                  <button key={item} onClick={() => setJenjang(item)} className={`flex-1 py-3 rounded-lg border transition-all ${ jenjang === item ? "bg-[#FCA311]/20 border-[#FCA311] text-[#FCA311]" : "bg-black/20 border-white/10 text-[#E5E5E5]/70 hover:bg-[#FCA311]/10" }`}>
+                  <button
+                    key={item}
+                    type="button"
+                    aria-pressed={jenjang === item}
+                    onClick={() => setJenjang(item)}
+                    className={`min-h-11 flex-1 rounded-lg border px-4 py-3 transition-colors active:bg-[#D9EAF7] ${jenjang === item ? "border-[#1769AA] bg-[#EAF3FA] font-semibold text-[#12588F]" : "border-[#66758A] bg-white text-[#44546A] hover:bg-[#F4F8FC]"}`}
+                  >
                     {item}
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-[#E5E5E5] mb-3">Tipe Tugas</label>
-              <div className="grid grid-cols-3 gap-3">
-                {[ { id: "Laporan", icon: <FileText size={18} /> }, { id: "Soal", icon: <HelpCircle size={18} /> }, { id: "Projek", icon: <Briefcase size={18} /> } ].map((item) => (
-                  <button key={item.id} onClick={() => setTipe(item.id)} className={`flex flex-col items-center justify-center py-4 rounded-lg border transition-all gap-2 ${ tipe === item.id ? "bg-[#FCA311]/20 border-[#FCA311] text-[#FCA311]" : "bg-black/20 border-white/10 text-[#E5E5E5]/70 hover:bg-[#FCA311]/10" }`}>
-                    {item.icon} <span className="text-sm font-medium">{item.id}</span>
+            <fieldset className="mb-6">
+              <legend className="mb-3 text-sm font-medium text-[#15243B]">Tipe tugas</legend>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {[{ id: "Laporan", icon: <FileText aria-hidden="true" size={18} /> }, { id: "Soal", icon: <HelpCircle aria-hidden="true" size={18} /> }, { id: "Projek", icon: <Briefcase aria-hidden="true" size={18} /> }].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={tipe === item.id}
+                    onClick={() => setTipe(item.id)}
+                    className={`flex min-h-16 flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 transition-colors active:bg-[#D9EAF7] ${tipe === item.id ? "border-[#1769AA] bg-[#EAF3FA] text-[#12588F]" : "border-[#66758A] bg-white text-[#44546A] hover:bg-[#F4F8FC]"}`}
+                  >
+                    {item.icon}
+                    <span className="text-sm font-medium">{item.id}</span>
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
-            <div className="p-5 bg-black/20 rounded-xl border border-white/5">
+            <div className="rounded-xl border border-[#D7E0EB] bg-[#F4F8FC] p-5">
               {tipe === "Laporan" && (
                 <div>
-                  <label className="block text-sm font-medium text-[#E5E5E5] mb-2">Jumlah Halaman</label>
-                  <input type="number" min="1" value={halaman} onChange={(e) => setHalaman(e.target.value)} className="w-full bg-black/40 border border-white/10 text-[#FFFFFF] px-4 py-3 rounded-xl focus:border-[#FCA311]/50 focus:outline-none" />
+                  <label htmlFor="jumlah-halaman" className="mb-2 block text-sm font-medium text-[#15243B]">Jumlah halaman</label>
+                  <input id="jumlah-halaman" type="number" min="1" value={halaman} onChange={(e) => setHalaman(e.target.value)} className="w-full rounded-lg border border-[#66758A] bg-white px-4 py-3 text-[#15243B] focus:border-[#7152B8] focus:outline-none" />
                 </div>
               )}
               {tipe === "Soal" && (
                 <div>
-                  <label className="block text-sm font-medium text-[#E5E5E5] mb-2">Kecepatan Pengerjaan</label>
-                  <select value={urgensi} onChange={(e) => setUrgensi(e.target.value)} className="w-full bg-black/40 border border-white/10 text-[#FFFFFF] px-4 py-3 rounded-xl focus:border-[#FCA311]/50 focus:outline-none">
+                  <label htmlFor="kecepatan-pengerjaan" className="mb-2 block text-sm font-medium text-[#15243B]">Kecepatan pengerjaan</label>
+                  <select id="kecepatan-pengerjaan" value={urgensi} onChange={(e) => setUrgensi(e.target.value)} className="w-full rounded-lg border border-[#66758A] bg-white px-4 py-3 text-[#15243B] focus:border-[#7152B8] focus:outline-none">
                     <option value="Normal (2 Hari)">Normal (2 Hari)</option>
                     <option value="Kilat (1 Hari)">Kilat (1 Hari) - Tambahan 25%</option>
                   </select>
@@ -118,8 +111,8 @@ export default function Calculator() {
               )}
               {tipe === "Projek" && (
                 <div>
-                  <label className="block text-sm font-medium text-[#E5E5E5] mb-2">Pilih Paket Bundling</label>
-                  <select value={paket} onChange={(e) => setPaket(e.target.value)} className="w-full bg-black/40 border border-white/10 text-[#FFFFFF] px-4 py-3 rounded-xl focus:border-[#FCA311]/50 focus:outline-none">
+                  <label htmlFor="paket-projek" className="mb-2 block text-sm font-medium text-[#15243B]">Pilih paket</label>
+                  <select id="paket-projek" value={paket} onChange={(e) => setPaket(e.target.value)} className="w-full rounded-lg border border-[#66758A] bg-white px-4 py-3 text-[#15243B] focus:border-[#7152B8] focus:outline-none">
                     <option value="Basic">Basic (Tugas Sederhana)</option>
                     <option value="Pro">Pro (Aplikasi Menengah / Makalah Lengkap)</option>
                     <option value="Premium">Premium (Skripsi / Projek Akhir)</option>
@@ -127,34 +120,29 @@ export default function Calculator() {
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div 
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="lg:col-span-2 relative"
-          >
-            <div className="absolute -inset-1 bg-[#FCA311] rounded-2xl blur opacity-10"></div>
-            <div className="relative bg-white/5 backdrop-blur-xl border border-[#FCA311]/20 rounded-2xl p-6 md:p-8 h-full flex flex-col shadow-xl">
-              <h3 className="text-xl font-bold text-[#FFFFFF] mb-6 border-b border-white/10 pb-4">Ringkasan Pesanan</h3>
+          <div className="relative lg:col-span-2">
+            <div className="absolute -inset-1 rounded-2xl bg-[#1769AA] opacity-10 blur"></div>
+            <div className="relative flex h-full flex-col rounded-2xl border border-[#1769AA]/30 bg-white/90 p-6 shadow-xl backdrop-blur-xl md:p-8">
+              <h3 className="mb-6 border-b border-[#D7E0EB] pb-4 text-xl font-bold text-[#15243B]">Ringkasan pesanan</h3>
               <div className="space-y-4 flex-grow text-sm">
-                <div className="flex justify-between"><span className="text-[#E5E5E5]/70">Jenjang</span><span className="text-[#FFFFFF] font-medium">{jenjang}</span></div>
-                <div className="flex justify-between"><span className="text-[#E5E5E5]/70">Tipe Tugas</span><span className="text-[#FFFFFF] font-medium">{tipe}</span></div>
-                <div className="pt-4 border-t border-white/10 mt-4">
+                <div className="flex justify-between gap-4"><span className="text-[#44546A]">Jenjang</span><span className="font-medium text-[#15243B]">{jenjang}</span></div>
+                <div className="flex justify-between gap-4"><span className="text-[#44546A]">Tipe tugas</span><span className="font-medium text-[#15243B]">{tipe}</span></div>
+                <div className="mt-4 border-t border-[#D7E0EB] pt-4">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[#E5E5E5]">Estimasi Total</span>
-                    <span className="text-2xl font-bold text-[#FCA311]">Rp {totalHarga.toLocaleString('id-ID')}</span>
+                    <span className="text-[#15243B]">Estimasi total</span>
+                    <span className="text-xl font-bold text-[#1769AA] sm:text-2xl">Rp {totalHarga.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               </div>
 
-              <button onClick={handleOrder} className="w-full mt-8 bg-[#FCA311] hover:bg-[#FCA311]/80 text-[#000000] font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-lg">
-                <Send size={18} />
+              <button type="button" onClick={handleOrder} className="mt-8 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#1769AA] py-4 font-bold text-white shadow-lg transition-colors hover:bg-[#12588F] active:bg-[#0D4777]">
+                <Send aria-hidden="true" size={18} />
                 Pesan via WhatsApp
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
