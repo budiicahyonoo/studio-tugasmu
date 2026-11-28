@@ -5,7 +5,8 @@ import {
   saveFaq,
   saveGallery,
 } from "../../actions/content";
-import { Editor, Field, Paged, visibilityOptions } from "./AdminForms";
+import { Editor, Field, visibilityOptions } from "./AdminForms";
+import { Pagination } from "./AdminOperationsPanels";
 const order = {
   name: "urutan",
   label: "Urutan",
@@ -19,7 +20,7 @@ const visible = {
   options: visibilityOptions,
   initial: "true",
 };
-export function FaqPanel({ faq, runAction }) {
+export function FaqPanel({ faq, paging, runAction }) {
   const fields = [
     {
       name: "pertanyaan",
@@ -58,9 +59,10 @@ export function FaqPanel({ faq, runAction }) {
         save={saveFaq}
         runAction={runAction}
       />
-      <Paged
-        items={faq}
-        render={(item) => (
+      {!faq.length ? (
+        <p className="empty-state">Belum ada FAQ.</p>
+      ) : (
+        faq.map((item) => (
           <Editor
             key={item.id}
             title={item.pertanyaan}
@@ -70,12 +72,13 @@ export function FaqPanel({ faq, runAction }) {
             remove={deleteFaq}
             runAction={runAction}
           />
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="faq" />
     </div>
   );
 }
-export function GalleryPanel({ galeri, runAction }) {
+export function GalleryPanel({ galeri, paging, runAction }) {
   const fields = [
     {
       name: "label",
@@ -108,9 +111,10 @@ export function GalleryPanel({ galeri, runAction }) {
           required
         />
       </Editor>
-      <Paged
-        items={galeri}
-        render={(item) => (
+      {!galeri.length ? (
+        <p className="empty-state">Belum ada foto ulasan.</p>
+      ) : (
+        galeri.map((item) => (
           <Editor
             key={item.id}
             title={item.label}
@@ -137,8 +141,9 @@ export function GalleryPanel({ galeri, runAction }) {
               />
             </div>
           </Editor>
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="ulasan" />
     </div>
   );
 }

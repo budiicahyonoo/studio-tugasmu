@@ -525,6 +525,7 @@ export async function savePengaturan(form) {
       ]),
       turnitinAktif: z.boolean(),
       turnitinMaksMb: z.coerce.number().int().min(1).max(4),
+      turnitinEstimasiSelesai: z.string().trim().min(2).max(60),
       turnitinBatasJam: z.coerce.number().int().min(1).max(168),
     })
     .safeParse({
@@ -537,6 +538,9 @@ export async function savePengaturan(form) {
           : form.get("jumlahKlienDibantu"),
       turnitinAktif: form.get("turnitinAktif") === "true",
       turnitinMaksMb: form.get("turnitinMaksMb") || 4,
+      turnitinEstimasiSelesai: String(
+        form.get("turnitinEstimasiSelesai") || "1x24 jam",
+      ),
       turnitinBatasJam: form.get("turnitinBatasJam") || 24,
     });
   if (!parsed.success)
@@ -557,7 +561,10 @@ export async function savePengaturan(form) {
       return { ok: false, error: "Unggah QRIS sebelum mengaktifkan Turnitin." };
     const data = {
       ...parsed.data,
-      turnitinFormat: "application/pdf",
+      turnitinFormat:
+        old?.turnitinFormat === "application/pdf"
+          ? old.turnitinFormat
+          : "application/pdf",
       ...(upload ? { qrisImageUrl: upload.secure_url } : {}),
     };
     await prisma.pengaturan.upsert({

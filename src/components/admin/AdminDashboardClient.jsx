@@ -331,6 +331,7 @@ export default function AdminDashboardClient({
             <LayananPanel
               layanan={data.layanan}
               kategori={data.kategori}
+              paging={data.paging}
               runAction={runAction}
             />
           )}
@@ -338,23 +339,46 @@ export default function AdminDashboardClient({
             <TarifPanel
               layanan={data.layanan}
               riwayatHarga={data.riwayatHarga}
+              paging={data.paging}
+              historyPaging={data.historyPaging}
               runAction={runAction}
             />
           )}
           {activeTab === "paket" && (
-            <PaketBenefitPanel layanan={data.layanan} runAction={runAction} />
+            <PaketBenefitPanel
+              paket={data.paket}
+              layananOptions={data.layananOptions}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "fakultas" && (
-            <FakultasPanel fakultas={data.fakultas} runAction={runAction} />
+            <FakultasPanel
+              fakultas={data.fakultas}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "kategori" && (
-            <KategoriPanel kategori={data.kategori} runAction={runAction} />
+            <KategoriPanel
+              kategori={data.kategori}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "ulasan" && (
-            <GalleryPanel galeri={data.galeri} runAction={runAction} />
+            <GalleryPanel
+              galeri={data.galeri}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "faq" && (
-            <FaqPanel faq={data.faq} runAction={runAction} />
+            <FaqPanel
+              faq={data.faq}
+              paging={data.paging}
+              runAction={runAction}
+            />
           )}
           {activeTab === "pengaturan" && (
             <PengaturanPanel

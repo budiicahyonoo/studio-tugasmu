@@ -53,9 +53,25 @@ export function RingkasanPanel({ data }) {
     </div>
   );
 }
-export function Pagination({ page, pages, tab, q = "", status = "" }) {
-  const href = (number) =>
-    `/admin/dashboard?${new URLSearchParams({ tab, page: String(number), q, status })}`;
+export function Pagination({
+  page,
+  pages,
+  total,
+  tab,
+  q = "",
+  status = "",
+  param = "page",
+  otherPage,
+}) {
+  const href = (number) => {
+    const params = new URLSearchParams({ tab });
+    if (q) params.set("q", q);
+    if (status) params.set("status", status);
+    if (otherPage)
+      params.set(param === "page" ? "historyPage" : "page", String(otherPage));
+    params.set(param, String(number));
+    return `/admin/dashboard?${params}`;
+  };
   return (
     <nav
       aria-label="Halaman daftar"
@@ -68,6 +84,7 @@ export function Pagination({ page, pages, tab, q = "", status = "" }) {
       )}
       <p className="text-sm">
         Halaman {page} dari {pages}
+        {total === undefined ? "" : ` · ${total} data`}
       </p>
       {page < pages && (
         <Link className="btn-secondary" href={href(page + 1)}>
@@ -355,8 +372,9 @@ export function PengaturanPanel({ pengaturan, runAction }) {
       </div>
       <div className="sm:col-span-2 rounded-xl bg-[#FEF6E7] p-4 text-sm leading-7">
         Aktifkan Turnitin hanya setelah izin layanan dan QRIS dikonfirmasi serta
-        paket diberi harga di menu Paket. Format dokumen PDF. Batas ukuran
-        berikut dipakai pada form dan penjelasan publik.
+        paket diberi harga di menu Paket. Dokumen yang didukung adalah PDF.
+        Batas ukuran dan estimasi selesai dipakai pada form dan pelacakan
+        pesanan.
       </div>
       <Field
         name="turnitinAktif"
@@ -371,6 +389,20 @@ export function PengaturanPanel({ pengaturan, runAction }) {
         min={1}
         max={4}
         defaultValue={settings.turnitinMaksMb || 4}
+        required
+      />
+      <Field
+        name="turnitinEstimasiSelesai"
+        label="Estimasi selesai Turnitin"
+        defaultValue={settings.turnitinEstimasiSelesai || "1x24 jam"}
+        maxLength={60}
+        required
+      />
+      <Field
+        name="turnitinEstimasiSelesai"
+        label="Estimasi selesai Turnitin"
+        defaultValue={settings.turnitinEstimasiSelesai || "1x24 jam"}
+        maxLength={60}
         required
       />
       <Field

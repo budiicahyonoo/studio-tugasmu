@@ -21,6 +21,7 @@ import {
   visibilityOptions,
 } from "./AdminForms";
 import { formatRupiah } from "../../lib/calculateEstimate";
+import { Pagination } from "./AdminOperationsPanels";
 
 const name = {
   name: "nama",
@@ -48,7 +49,7 @@ const group = {
   options: kelompokOptions,
   initial: "SOSHUM",
 };
-export function KategoriPanel({ kategori, runAction }) {
+export function KategoriPanel({ kategori, paging, runAction }) {
   const fields = [
     {
       name: "id",
@@ -67,9 +68,10 @@ export function KategoriPanel({ kategori, runAction }) {
         save={saveKategori}
         runAction={runAction}
       />
-      <Paged
-        items={kategori}
-        render={(item) => (
+      {!kategori.length ? (
+        <p className="empty-state">Belum ada kategori.</p>
+      ) : (
+        kategori.map((item) => (
           <Editor
             key={item.id}
             title={item.nama}
@@ -81,12 +83,13 @@ export function KategoriPanel({ kategori, runAction }) {
             remove={deleteKategori}
             runAction={runAction}
           />
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="kategori" />
     </div>
   );
 }
-export function LayananPanel({ layanan, kategori = [], runAction }) {
+export function LayananPanel({ layanan, kategori = [], paging, runAction }) {
   const fields = [
     name,
     {
@@ -128,9 +131,10 @@ export function LayananPanel({ layanan, kategori = [], runAction }) {
         save={saveLayanan}
         runAction={runAction}
       />
-      <Paged
-        items={layanan}
-        render={(item) => (
+      {!layanan.length ? (
+        <p className="empty-state">Belum ada layanan.</p>
+      ) : (
+        layanan.map((item) => (
           <div key={item.id} className="space-y-3">
             <Editor
               title={item.nama}
@@ -146,12 +150,13 @@ export function LayananPanel({ layanan, kategori = [], runAction }) {
               runAction={runAction}
             />
           </div>
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="layanan" />
     </div>
   );
 }
-export function FakultasPanel({ fakultas, runAction }) {
+export function FakultasPanel({ fakultas, paging, runAction }) {
   const fields = [name, group, order, active];
   return (
     <div className="space-y-5">
@@ -161,9 +166,10 @@ export function FakultasPanel({ fakultas, runAction }) {
         save={saveFakultas}
         runAction={runAction}
       />
-      <Paged
-        items={fakultas}
-        render={(item) => (
+      {!fakultas.length ? (
+        <p className="empty-state">Belum ada fakultas.</p>
+      ) : (
+        fakultas.map((item) => (
           <Editor
             key={item.id}
             title={item.nama}
@@ -173,17 +179,25 @@ export function FakultasPanel({ fakultas, runAction }) {
             remove={deleteFakultas}
             runAction={runAction}
           />
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="fakultas" />
     </div>
   );
 }
-export function TarifPanel({ layanan, riwayatHarga, runAction }) {
+export function TarifPanel({
+  layanan,
+  riwayatHarga,
+  paging,
+  historyPaging,
+  runAction,
+}) {
   return (
     <div className="space-y-7">
-      <Paged
-        items={layanan.filter((item) => item.tipeHitung !== "PER_PAKET")}
-        render={(item) => (
+      {!layanan.length ? (
+        <p className="empty-state">Belum ada layanan dengan tarif unit.</p>
+      ) : (
+        layanan.map((item) => (
           <section key={item.id} className="surface-card p-5">
             <h2 className="text-xl font-bold">{item.nama}</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -240,13 +254,15 @@ export function TarifPanel({ layanan, riwayatHarga, runAction }) {
               })}
             </div>
           </section>
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="tarif" otherPage={historyPaging.page} />
       <section>
         <h2 className="mb-4 text-lg font-bold">Riwayat perubahan harga</h2>
-        <Paged
-          items={riwayatHarga}
-          render={(row) => (
+        {!riwayatHarga.length ? (
+          <p className="empty-state">Belum ada perubahan harga.</p>
+        ) : (
+          riwayatHarga.map((row) => (
             <article
               key={row.id}
               className="border-b border-[#DCE4EB] py-3 text-sm"
@@ -260,7 +276,13 @@ export function TarifPanel({ layanan, riwayatHarga, runAction }) {
                 {row.diubahOleh} · {new Date(row.waktu).toLocaleString("id-ID")}
               </p>
             </article>
-          )}
+          ))
+        )}
+        <Pagination
+          {...historyPaging}
+          tab="tarif"
+          param="historyPage"
+          otherPage={paging.page}
         />
       </section>
     </div>
@@ -368,16 +390,24 @@ export function BenefitEditor({ target, benefits, runAction }) {
     </details>
   );
 }
-export function PaketBenefitPanel({ layanan, runAction }) {
-  const services = layanan.filter((item) => item.tipeHitung === "PER_PAKET");
-  const packages = services.flatMap((item) =>
-    item.paket.map((p) => ({ ...p, layananNama: item.nama })),
-  );
+export function PaketBenefitPanel({
+  paket = [],
+  layananOptions = [],
+  paging,
+  runAction,
+}) {
+  const packages = paket.map((item) => ({
+    ...item,
+    layananNama: item.layanan.nama,
+  }));
   const fields = [
     {
       name: "layananId",
       label: "Layanan",
-      options: services.map((item) => ({ value: item.id, label: item.nama })),
+      options: layananOptions.map((item) => ({
+        value: item.id,
+        label: item.nama,
+      })),
       required: true,
     },
     group,
@@ -400,7 +430,7 @@ export function PaketBenefitPanel({ layanan, runAction }) {
   ];
   return (
     <div className="space-y-5">
-      {services.length ? (
+      {layananOptions.length ? (
         <Editor
           title="Tambah paket"
           fields={fields}
@@ -412,9 +442,10 @@ export function PaketBenefitPanel({ layanan, runAction }) {
           Buat layanan dengan tipe per paket terlebih dahulu.
         </p>
       )}
-      <Paged
-        items={packages}
-        render={(item) => (
+      {!packages.length ? (
+        <p className="empty-state">Belum ada paket.</p>
+      ) : (
+        packages.map((item) => (
           <div key={item.id} className="space-y-3">
             <Editor
               title={`${item.layananNama}: ${item.nama} (${item.kelompok})`}
@@ -430,8 +461,9 @@ export function PaketBenefitPanel({ layanan, runAction }) {
               runAction={runAction}
             />
           </div>
-        )}
-      />
+        ))
+      )}
+      <Pagination {...paging} tab="paket" />
     </div>
   );
 }

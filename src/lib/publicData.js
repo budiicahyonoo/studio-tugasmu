@@ -14,6 +14,7 @@ export const DEFAULT_PENGATURAN = {
   turnitinAktif: false,
   turnitinMaksMb: 4,
   turnitinFormat: "application/pdf",
+  turnitinEstimasiSelesai: "1x24 jam",
   turnitinBatasJam: 24,
 };
 

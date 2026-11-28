@@ -89,6 +89,33 @@ describe("admin mutations", () => {
       isolationLevel: "Serializable",
     });
   });
+  it("saves the Turnitin estimate in site settings", async () => {
+    db.pengaturan.findUnique.mockResolvedValue({ qrisImageUrl: null });
+    const result = await admin.savePengaturan(
+      form({
+        nomorWhatsApp: "628123456789",
+        namaRekening: "",
+        syaratKetentuan: "",
+        kebijakanPrivasi: "",
+        instagramUrl: "https://www.instagram.com/studiotugasmu19/",
+        emailKontak: "admin@example.com",
+        calendlyUrl: "",
+        jumlahKlienDibantu: "",
+        turnitinAktif: "false",
+        turnitinMaksMb: "3",
+        turnitinEstimasiSelesai: "2x24 jam",
+        turnitinBatasJam: "24",
+      }),
+    );
+    expect(result.ok).toBe(true);
+    expect(db.pengaturan.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          turnitinEstimasiSelesai: "2x24 jam",
+        }),
+      }),
+    );
+  });
   it.each([-1, 1.5, 2147483648, "not-money"])(
     "rejects invalid price %s",
     async (amount) => {

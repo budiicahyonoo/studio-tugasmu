@@ -6,6 +6,7 @@ import {
   submitTurnitinPaymentProof,
 } from "../../actions/turnitin";
 import { formatRupiah } from "../../lib/calculateEstimate";
+import { MessageCircle } from "lucide-react";
 import { useToast } from "../shared/ToastProvider";
 export default function TurnitinClient({ settings, packages = [] }) {
   const { showToast } = useToast();
@@ -48,10 +49,12 @@ export default function TurnitinClient({ settings, packages = [] }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     form.set("kodePesanan", order.kodePesanan);
+    const notificationWindow = window.open("about:blank", "_blank");
     setBusy("proof");
     try {
       const result = await submitTurnitinPaymentProof(form);
       if (!result.ok) {
+        notificationWindow?.close();
         showToast(result.error, "error");
         await track(order.kodePesanan);
         return;
@@ -63,8 +66,9 @@ export default function TurnitinClient({ settings, packages = [] }) {
         "Bukti diterima. Kabari admin melalui tombol WhatsApp.",
         "success",
       );
-      window.open(link, "_blank", "noopener,noreferrer");
+      if (notificationWindow) notificationWindow.location.href = link;
     } catch {
+      notificationWindow?.close();
       showToast("Bukti belum tersimpan. Coba lagi.", "error");
     } finally {
       setBusy("");
@@ -238,6 +242,9 @@ export default function TurnitinClient({ settings, packages = [] }) {
             <p>
               {order.paketNama} · {formatRupiah(order.nominal)}
             </p>
+            {order.estimasiSelesai && (
+              <p>Estimasi selesai: {order.estimasiSelesai}</p>
+            )}
             <p>
               Status: <strong>{order.status.replaceAll("_", " ")}</strong>
             </p>
@@ -322,6 +329,7 @@ export default function TurnitinClient({ settings, packages = [] }) {
                 target="_blank"
                 rel="noopener noreferrer"
               >
+                <MessageCircle aria-hidden="true" size={18} />
                 Kabari admin lewat WhatsApp
               </a>
             )}
