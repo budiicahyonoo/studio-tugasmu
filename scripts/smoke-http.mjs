@@ -79,7 +79,7 @@ async function action(name, data, cookie, path = "/admin/dashboard") {
         result = value;
     } catch {}
   }
-  return { response, result };
+  return { response, result, text };
 }
 try {
   const admin = await prisma.admin.findFirst({ select: { id: true } });
@@ -87,8 +87,21 @@ try {
     throw new Error("Admin credentials are not configured");
   const cookie = token(admin.id);
   if (process.env.ADMIN_SEED_USERNAME && process.env.ADMIN_SEED_PASSWORD) {
-    const login = await action("loginAdmin", form({ username: process.env.ADMIN_SEED_USERNAME, password: process.env.ADMIN_SEED_PASSWORD }), null, "/admin/login");
-    assert(login.response.status === 303 && login.response.headers.get("set-cookie")?.includes("HttpOnly"), "real password login issues an HttpOnly session");
+    const login = await action(
+      "loginAdmin",
+      form({
+        username: process.env.ADMIN_SEED_USERNAME,
+        password: process.env.ADMIN_SEED_PASSWORD,
+      }),
+      null,
+      "/admin/login",
+    );
+    assert(
+      login.response.status < 400 &&
+        login.response.headers.get("set-cookie")?.includes("HttpOnly") &&
+        login.text.includes("admin/dashboard"),
+      "real password login issues an HttpOnly session",
+    );
   }
   for (const route of [
     "/",

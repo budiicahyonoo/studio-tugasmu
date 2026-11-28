@@ -83,6 +83,8 @@ describe("calculateEstimate", () => {
       fakultasNama: "Hukum",
       kelompok: "SOSHUM",
       layananNama: "Artikel",
+      paketNama: "Full",
+      paketDeskripsi: "Cakupan Bab 1 sampai Bab 5.",
       tipeHitung: "PER_LEMBAR",
       jumlah: 15,
       judul: "Analisis Hukum Perdata",
@@ -94,6 +96,7 @@ describe("calculateEstimate", () => {
     expect(message).toContain("TM19-20261126-ABCD");
     expect(message).toContain("Hukum (SOSHUM)");
     expect(message).toContain("Jumlah: 15 lembar");
+    expect(message).toContain("Cakupan paket: Cakupan Bab 1 sampai Bab 5.");
     expect(message).toContain("Rp45.000");
     expect(message).toContain("1x24 jam");
   });

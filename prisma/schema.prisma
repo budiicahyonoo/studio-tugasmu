@@ -184,6 +184,7 @@ model Pembayaran {
   pesanan Pesanan @relation(fields: [pesananId], references: [id], onDelete: Cascade)
 
   @@index([status])
+  @@index([status, kedaluwarsaPada])
 }
 
 model Pengaturan {
@@ -200,6 +201,7 @@ model Pengaturan {
   turnitinAktif    Boolean  @default(false)
   turnitinMaksMb   Int      @default(4)
   turnitinFormat   String   @default("application/pdf")
+  turnitinEstimasiSelesai String @default("1x24 jam")
   turnitinBatasJam Int      @default(24)
   updatedAt        DateTime @updatedAt
 }

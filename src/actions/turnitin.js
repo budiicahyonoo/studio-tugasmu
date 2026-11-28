@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma";
 import { checkRateLimit } from "../lib/persistentRateLimit";
 import { publicError } from "../lib/validation";
 import { removeUpload, uploadFile } from "../lib/uploads";
+import { getTurnitinUploadPolicy } from "../lib/turnitinPolicy";
 const codeSchema = z.string().regex(/^TRN-[A-F0-9]{40}$/);
 async function allowed(action, limit = 10) {
   const h = await headers();
@@ -71,6 +72,12 @@ export async function createTurnitinOrder(form) {
       !settings.namaRekening
     )
       return { ok: false, error: "Pemesanan Turnitin belum dibuka." };
+    let uploadPolicy;
+    try {
+      uploadPolicy = getTurnitinUploadPolicy(settings);
+    } catch {
+      return { ok: false, error: "Format dokumen Turnitin belum didukung." };
+    }
     const paket = await prisma.paket.findUnique({
       where: { id: parsed.data.paketId },
       include: { layanan: true },
@@ -96,9 +103,8 @@ export async function createTurnitinOrder(form) {
       return { ok: false, error: "Data layanan belum lengkap. Hubungi admin." };
     const file = form.get("dokumenFile");
     upload = await uploadFile(file, "studio_turnitin_docs", {
-      pdf: true,
+      ...uploadPolicy,
       private: true,
-      maxMb: settings.turnitinMaksMb,
     });
     const kodePesanan = `TRN-${randomBytes(20).toString("hex").toUpperCase()}`;
     await prisma.pesanan.create({
@@ -112,7 +118,7 @@ export async function createTurnitinOrder(form) {
         total: paket.harga,
         ringkasan: {
           paketNama: paket.nama,
-          estimasiSelesai: paket.layanan.estimasiSelesai,
+          estimasiSelesai: settings.turnitinEstimasiSelesai,
           qrisImageUrl: settings.qrisImageUrl,
           namaRekening: settings.namaRekening,
         },

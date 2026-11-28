@@ -11,7 +11,10 @@ export default async function TurnitinPage() {
   const service = layanan.find((item) => item.nama === "Cek Turnitin");
   const packages = (service?.paket || [])
     .filter((item) => item.kelompok === "SOSHUM")
-    .map((item) => ({ ...item, estimasiSelesai: service.estimasiSelesai }));
+    .map((item) => ({
+      ...item,
+      estimasiSelesai: pengaturan.turnitinEstimasiSelesai,
+    }));
   return (
     <PublicShell settings={pengaturan}>
       <div className="page-intro">

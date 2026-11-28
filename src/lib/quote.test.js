@@ -72,6 +72,7 @@ describe("PRD price and selection rules", () => {
           nama: "Sempro",
           kelompok: "SOSHUM",
           harga: 2000000,
+          deskripsi: "Bab 1 sampai Bab 3.",
           benefit: [{ id: "b1", teks: "Bab 1-3" }],
         },
         {
@@ -79,6 +80,7 @@ describe("PRD price and selection rules", () => {
           nama: "Full",
           kelompok: "SOSHUM",
           harga: 5000000,
+          deskripsi: "Bab 1 sampai Bab 5.",
           benefit: [{ id: "b2", teks: "Bab 1-5" }],
         },
       ],
@@ -89,6 +91,7 @@ describe("PRD price and selection rules", () => {
       paketId: "full",
     });
     expect(quote.total).toBe(5000000);
+    expect(quote.paketDeskripsi).toBe("Bab 1 sampai Bab 5.");
     expect(quote.benefit[0].teks).toBe("Bab 1-5");
     expect(() =>
       resolveQuote({ layanan, fakultas: faculty("SAINTEK"), paketId: "full" }),

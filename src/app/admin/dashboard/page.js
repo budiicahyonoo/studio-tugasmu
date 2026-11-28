@@ -4,7 +4,22 @@ import { getAdminSession } from "../../../lib/auth";
 import { publicError } from "../../../lib/validation";
 import DatabaseUnavailable from "../../../components/shared/DatabaseUnavailable";
 import AdminDashboardClient from "../../../components/admin/AdminDashboardClient";
+import { expireExpiredTurnitinPayments } from "../../../lib/turnitinExpiry";
 export const dynamic = "force-dynamic";
+const pageSize = 20;
+const tabs = new Set([
+  "ringkasan",
+  "pesanan",
+  "pembayaran",
+  "layanan",
+  "kategori",
+  "tarif",
+  "paket",
+  "fakultas",
+  "ulasan",
+  "faq",
+  "pengaturan",
+]);
 const statuses = [
   "BARU",
   "DIPROSES",
@@ -19,13 +34,17 @@ export default async function AdminDashboardPage({ searchParams }) {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
   const params = await searchParams;
-  const page = Math.max(
+  const requestedPage = Math.max(
     1,
     Math.min(100000, Number.parseInt(params?.page, 10) || 1),
   );
+  const requestedHistoryPage = Math.max(
+    1,
+    Math.min(100000, Number.parseInt(params?.historyPage, 10) || 1),
+  );
   const q = typeof params?.q === "string" ? params.q.slice(0, 100) : "";
   const status = statuses.includes(params?.status) ? params.status : "";
-  const tab = typeof params?.tab === "string" ? params.tab : "ringkasan";
+  const tab = tabs.has(params?.tab) ? params.tab : "ringkasan";
   const orderWhere = {
     deletedAt: null,
     ...(status ? { status } : {}),
@@ -39,47 +58,8 @@ export default async function AdminDashboardPage({ searchParams }) {
   };
   let data;
   try {
-    const [
-      fakultas,
-      layanan,
-      kategori,
-      riwayatHarga,
-      orderCount,
-      paymentCount,
-      faq,
-      galeri,
-      pengaturan,
-      baru,
-      verifikasi,
-      galleryCount,
-      recent,
-    ] = await Promise.all([
-      prisma.fakultas.findMany({
-        orderBy: [{ urutan: "asc" }, { nama: "asc" }],
-      }),
-      prisma.layanan.findMany({
-        orderBy: [{ urutan: "asc" }, { nama: "asc" }],
-        include: {
-          tarif: true,
-          paket: {
-            orderBy: { urutan: "asc" },
-            include: {
-              benefit: { orderBy: [{ urutan: "asc" }, { id: "asc" }] },
-            },
-          },
-          benefit: { orderBy: [{ urutan: "asc" }, { id: "asc" }] },
-        },
-      }),
-      prisma.kategori.findMany({ orderBy: { urutan: "asc" } }),
-      prisma.riwayatHarga.findMany({ orderBy: { waktu: "desc" }, take: 100 }),
-      prisma.pesanan.count({ where: orderWhere }),
-      prisma.pembayaran.count({
-        where: { deletedAt: null, pesanan: { deletedAt: null } },
-      }),
-      prisma.faq.findMany({ orderBy: [{ urutan: "asc" }, { id: "asc" }] }),
-      prisma.galeriUlasan.findMany({
-        orderBy: [{ urutan: "asc" }, { id: "asc" }],
-      }),
+    await expireExpiredTurnitinPayments({ limit: 100 });
+    const [pengaturan, baru, verifikasi, galleryCount] = await Promise.all([
       prisma.pengaturan.findUnique({ where: { id: "default" } }),
       prisma.pesanan.count({ where: { deletedAt: null, status: "BARU" } }),
       prisma.pembayaran.count({
@@ -90,45 +70,154 @@ export default async function AdminDashboardPage({ searchParams }) {
         },
       }),
       prisma.galeriUlasan.count({ where: { tampil: true } }),
-      prisma.pesanan.findMany({
+    ]);
+    let paging = { page: 1, pages: 1, total: 0, q: "", status: "" };
+    let historyPaging = { page: 1, pages: 1, total: 0 };
+    let collection = {};
+    const setPaging = (total, page = requestedPage) => {
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      paging = {
+        page: Math.min(page, pages),
+        pages,
+        total,
+        q: tab === "pesanan" ? q : "",
+        status: tab === "pesanan" ? status : "",
+      };
+    };
+    const pageQuery = (model, args) =>
+      model.findMany({
+        ...args,
+        skip: (paging.page - 1) * pageSize,
+        take: pageSize,
+      });
+
+    if (tab === "ringkasan") {
+      collection.recent = await prisma.pesanan.findMany({
         where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         take: 8,
         include: { layanan: true },
-      }),
-    ]);
-    const total = tab === "pembayaran" ? paymentCount : orderCount;
-    const pages = Math.max(1, Math.ceil(total / 20));
-    const current = Math.min(page, pages);
-    const [pesanan, pembayaran] = await Promise.all([
-      prisma.pesanan.findMany({
+      });
+    } else if (tab === "pesanan") {
+      const total = await prisma.pesanan.count({ where: orderWhere });
+      setPaging(total);
+      collection.pesanan = await pageQuery(prisma.pesanan, {
         where: orderWhere,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        skip: (current - 1) * 20,
-        take: 20,
         include: { fakultas: true, layanan: true, paket: true },
-      }),
-      prisma.pembayaran.findMany({
-        where: { deletedAt: null, pesanan: { deletedAt: null } },
+      });
+    } else if (tab === "pembayaran") {
+      const where = { deletedAt: null, pesanan: { deletedAt: null } };
+      const total = await prisma.pembayaran.count({ where });
+      setPaging(total);
+      collection.pembayaran = await pageQuery(prisma.pembayaran, {
+        where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        skip: (current - 1) * 20,
-        take: 20,
         include: { pesanan: true },
-      }),
-    ]);
+      });
+    } else if (tab === "layanan") {
+      const total = await prisma.layanan.count();
+      setPaging(total);
+      const [layanan, kategori] = await Promise.all([
+        pageQuery(prisma.layanan, {
+          orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+          include: {
+            benefit: {
+              orderBy: [{ urutan: "asc" }, { id: "asc" }],
+              take: 100,
+            },
+          },
+        }),
+        prisma.kategori.findMany({
+          orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+          take: 200,
+        }),
+      ]);
+      collection.layanan = layanan;
+      collection.kategori = kategori;
+    } else if (tab === "kategori") {
+      const total = await prisma.kategori.count();
+      setPaging(total);
+      collection.kategori = await pageQuery(prisma.kategori, {
+        orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+      });
+    } else if (tab === "tarif") {
+      const where = { tipeHitung: { not: "PER_PAKET" } };
+      const total = await prisma.layanan.count({ where });
+      setPaging(total);
+      const historyTotal = await prisma.riwayatHarga.count();
+      historyPaging = {
+        page: Math.min(
+          requestedHistoryPage,
+          Math.max(1, Math.ceil(historyTotal / pageSize)),
+        ),
+        pages: Math.max(1, Math.ceil(historyTotal / pageSize)),
+        total: historyTotal,
+      };
+      const [layanan, riwayatHarga] = await Promise.all([
+        pageQuery(prisma.layanan, {
+          where,
+          orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+          include: { tarif: true },
+        }),
+        prisma.riwayatHarga.findMany({
+          orderBy: [{ waktu: "desc" }, { id: "desc" }],
+          skip: (historyPaging.page - 1) * pageSize,
+          take: pageSize,
+        }),
+      ]);
+      collection.layanan = layanan;
+      collection.riwayatHarga = riwayatHarga;
+    } else if (tab === "paket") {
+      const where = { layanan: { is: { tipeHitung: "PER_PAKET" } } };
+      const total = await prisma.paket.count({ where });
+      setPaging(total);
+      const [paket, layananOptions] = await Promise.all([
+        pageQuery(prisma.paket, {
+          where,
+          orderBy: [{ urutan: "asc" }, { nama: "asc" }, { id: "asc" }],
+          include: {
+            layanan: { select: { id: true, nama: true } },
+            benefit: {
+              orderBy: [{ urutan: "asc" }, { id: "asc" }],
+              take: 100,
+            },
+          },
+        }),
+        prisma.layanan.findMany({
+          where: { tipeHitung: "PER_PAKET" },
+          orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+          take: 500,
+          select: { id: true, nama: true },
+        }),
+      ]);
+      collection.paket = paket;
+      collection.layananOptions = layananOptions;
+    } else if (tab === "fakultas") {
+      const total = await prisma.fakultas.count();
+      setPaging(total);
+      collection.fakultas = await pageQuery(prisma.fakultas, {
+        orderBy: [{ urutan: "asc" }, { nama: "asc" }],
+      });
+    } else if (tab === "ulasan") {
+      const total = await prisma.galeriUlasan.count();
+      setPaging(total);
+      collection.galeri = await pageQuery(prisma.galeriUlasan, {
+        orderBy: [{ urutan: "asc" }, { id: "asc" }],
+      });
+    } else if (tab === "faq") {
+      const total = await prisma.faq.count();
+      setPaging(total);
+      collection.faq = await pageQuery(prisma.faq, {
+        orderBy: [{ urutan: "asc" }, { id: "asc" }],
+      });
+    }
     data = {
-      fakultas,
-      layanan,
-      kategori,
-      riwayatHarga,
-      pesanan,
-      pembayaran,
-      faq,
-      galeri,
+      ...collection,
       pengaturan,
-      recent,
       stats: { baru, verifikasi, galeri: galleryCount },
-      paging: { page: current, pages, total, q, status },
+      paging,
+      historyPaging,
     };
   } catch (error) {
     publicError("dashboard.load", error);

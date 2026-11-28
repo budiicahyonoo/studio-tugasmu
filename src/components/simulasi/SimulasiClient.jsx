@@ -440,6 +440,11 @@ export default function SimulasiClient({
               <dd className="mt-1 font-semibold">
                 {quote.paketNama} (harga total)
               </dd>
+              {quote.paketDeskripsi && (
+                <p className="mt-2 whitespace-pre-line leading-6 text-[#526277]">
+                  {quote.paketDeskripsi}
+                </p>
+              )}
             </div>
           )}
           <div>

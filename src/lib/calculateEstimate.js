@@ -49,7 +49,7 @@ export function formatRupiah(amount) {
   return `Rp${Math.round(numeric).toLocaleString("id-ID")}`;
 }
 
-/** @param {{kodePesanan?: string|null, nama: string, fakultasNama: string, kelompok: string, layananNama: string, paketNama?: string|null, tipeHitung: string, jumlah?: number|null, judul: string, deskripsi: string, total: number, estimasiSelesai: string}} order */
+/** @param {{kodePesanan?: string|null, nama: string, fakultasNama: string, kelompok: string, layananNama: string, paketNama?: string|null, paketDeskripsi?: string|null, tipeHitung: string, jumlah?: number|null, judul: string, deskripsi: string, total: number, estimasiSelesai: string}} order */
 export function buildWhatsAppOrderMessage({
   kodePesanan,
   nama,
@@ -57,6 +57,7 @@ export function buildWhatsAppOrderMessage({
   kelompok,
   layananNama,
   paketNama,
+  paketDeskripsi,
   tipeHitung,
   jumlah,
   judul,
@@ -80,6 +81,7 @@ export function buildWhatsAppOrderMessage({
     `Fakultas: ${fakultasNama} (${kelompok})`,
     `Layanan: ${layananNama}`,
     rincianUnit,
+    paketDeskripsi ? `Cakupan paket: ${paketDeskripsi}` : null,
     `Judul Tugas: ${judul}`,
     `Deskripsi: ${deskripsi}`,
     `Total Harga: ${formatRupiah(total)}`,

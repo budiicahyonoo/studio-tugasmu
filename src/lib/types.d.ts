@@ -14,6 +14,7 @@ export interface QuoteInput {
       id: string;
       kelompok: string;
       nama: string;
+      deskripsi?: string | null;
       harga: number;
       benefit?: QuoteBenefit[];
     }[];
@@ -31,6 +32,7 @@ export interface WhatsAppOrder {
   kelompok: string;
   layananNama: string;
   paketNama?: string | null;
+  paketDeskripsi?: string | null;
   tipeHitung: string;
   jumlah?: number | null;
   judul: string;

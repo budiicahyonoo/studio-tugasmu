@@ -32,6 +32,7 @@ export function resolveQuote({
     kelompok,
     paketId: paket?.id || null,
     paketNama: paket?.nama || null,
+    paketDeskripsi: paket?.deskripsi || null,
     jumlah: paket ? null : Number(jumlah),
     estimasiSelesai: layanan.estimasiSelesai,
     layananNama: layanan.nama,
